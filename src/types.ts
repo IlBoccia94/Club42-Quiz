@@ -18,6 +18,13 @@ export interface Team {
   created_at?: string
 }
 
+export interface TeamAccess {
+  team_id: string
+  team_name: string
+  recovery_code: string
+  active: boolean
+}
+
 export interface BuzzerWindow {
   id: string
   event_id: string
@@ -87,5 +94,6 @@ export interface TeamSession {
   team_id: string
   team_name: string
   team_token: string
+  recovery_code?: string
   event_id: string
 }
