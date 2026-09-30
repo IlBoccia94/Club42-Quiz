@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { EVENT_ID, supabase } from './lib/supabase'
-import type { BuzzerWindow, Category, QuizEvent, QuizQuestion, QuizRound, RoundTemplate, ScreenMode, ScreenState, Team, TeamSession } from './types'
+import type { BuzzerWindow, Category, QuizEvent, QuizQuestion, QuizRound, RoundTemplate, ScreenMode, ScreenState, Team, TeamAccess, TeamSession } from './types'
 
 const MASTER_STORAGE = 'club42_master_session'
 const TEAM_STORAGE = 'club42_team_session'
@@ -25,6 +25,7 @@ function msg(error: unknown) {
     SESSIONE_SQUADRA_NON_VALIDA: 'Sessione squadra non valida.',
     SQUADRA_NON_ATTIVA: 'Questa squadra non è più attiva.',
     DOMANDA_NON_TROVATA: 'Domanda non trovata.',
+    CODICE_RIENTRO_NON_VALIDO: 'Nome squadra o codice di rientro non corretti.',
   }
   const key = Object.keys(known).find(k => raw.includes(k))
   return key ? known[key] : raw
@@ -260,6 +261,16 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
 
 function TeamsPanel({ token, state, notice }: { token:string; state:PublicState; notice:(s:string)=>void }) {
   const [newName,setNewName]=useState('')
+  const [access,setAccess]=useState<TeamAccess[]>([])
+
+  const loadAccess = useCallback(async () => {
+    try {
+      setAccess(await rpc<TeamAccess[]>('master_get_team_access',{p_session_token:token}) || [])
+    } catch(e) { notice(msg(e)) }
+  },[token,notice])
+
+  useEffect(()=>{ void loadAccess() },[loadAccess])
+
   async function call(name:string,args:Record<string,unknown>,ok:string) {
     try { const data=await rpc<any>(name,{p_session_token:token,...args}); await state.reload(); notice(ok); return data } catch(e){notice(msg(e))}
   }
@@ -267,28 +278,42 @@ function TeamsPanel({ token, state, notice }: { token:string; state:PublicState;
     if(newName.trim().length<2)return
     const data=await call('master_add_team',{p_name:newName.trim()},'Squadra aggiunta.')
     if(data?.team_id && data?.team_token) {
+      await loadAccess()
       const url=`${location.origin}${location.pathname}#/player?team=${encodeURIComponent(data.team_id)}&token=${encodeURIComponent(data.team_token)}`
-      try { await navigator.clipboard.writeText(url); notice('Squadra aggiunta. Link di accesso copiato.') } catch { notice(`Squadra aggiunta. Link: ${url}`) }
+      try {
+        await navigator.clipboard.writeText(url)
+        notice(`Squadra aggiunta · codice rientro ${data.recovery_code}. Link copiato.`)
+      } catch {
+        notice(`Squadra aggiunta · codice rientro ${data.recovery_code}.`)
+      }
     }
     setNewName('')
   }
+  const codeByTeam = useMemo(()=>new Map(access.map(a=>[a.team_id,a.recovery_code])),[access])
+
   return <main className="master-content one-column">
     <section className="panel">
       <div className="section-head"><div><p className="eyebrow">GESTIONE</p><h2>Squadre · {state.teams.length}</h2></div><button className="secondary" onClick={()=>call('master_undo_last_score',{},'Ultima modifica punteggio annullata.')}>↶ Annulla ultimo punteggio</button></div>
+      <div className="team-help">Ogni squadra ha un <b>codice di rientro</b>: serve per recuperare l'accesso se cambia telefono, cancella i dati del browser o preme “Cambia squadra”.</div>
       <div className="add-team"><input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nome nuova squadra" onKeyDown={e=>{if(e.key==='Enter')void add()}}/><button className="primary" onClick={add}>+ Aggiungi</button></div>
       <div className="team-table">
-        {state.teams.slice().sort((a,b)=>b.score-a.score).map((team,index)=><TeamRow key={team.id} team={team} rank={index+1} act={call}/>)}
+        {state.teams.slice().sort((a,b)=>b.score-a.score).map((team,index)=><TeamRow key={team.id} team={team} rank={index+1} recoveryCode={codeByTeam.get(team.id)} act={call}/>)}
         {!state.teams.length && <div className="empty">Nessuna squadra iscritta.</div>}
       </div>
     </section>
   </main>
 }
-function TeamRow({team,rank,act}:{team:Team;rank:number;act:(name:string,args:Record<string,unknown>,ok:string)=>Promise<any>}) {
+function TeamRow({team,rank,recoveryCode,act}:{team:Team;rank:number;recoveryCode?:string;act:(name:string,args:Record<string,unknown>,ok:string)=>Promise<any>}) {
   const [name,setName]=useState(team.name); const [manual,setManual]=useState(String(team.score))
   useEffect(()=>{setName(team.name);setManual(String(team.score))},[team.name,team.score])
+  async function copyCode(){
+    if(!recoveryCode)return
+    try{await navigator.clipboard.writeText(recoveryCode)}catch{/* noop */}
+  }
   return <div className="team-row">
     <span className="rank">{rank}</span>
     <div className="team-name"><input value={name} onChange={e=>setName(e.target.value)} onBlur={()=>{if(name.trim()&&name.trim()!==team.name)void act('master_update_team',{p_team_id:team.id,p_name:name.trim(),p_active:true},'Nome aggiornato.')}}/><small>ID · {team.id.slice(0,8)}</small></div>
+    <button className="code-pill" title="Copia codice di rientro" onClick={copyCode}><small>RIENTRO</small><b>{recoveryCode || '····'}</b></button>
     <div className="score-quick">{SCORE_DELTAS.map(d=><button className={d<0?'minus':'plus'} key={d} onClick={()=>act('master_adjust_score',{p_team_id:team.id,p_delta:d,p_question_id:null,p_reason:'Correzione rapida'},`${d>0?'+':''}${d} a ${team.name}`)}>{d>0?'+':''}{d}</button>)}</div>
     <div className="score-value"><b>{team.score}</b><span>pt</span></div>
     <form className="manual-score" onSubmit={e=>{e.preventDefault();void act('master_set_score',{p_team_id:team.id,p_score:Number(manual),p_reason:'Impostazione manuale'},'Punteggio impostato.')}}><input type="number" value={manual} onChange={e=>setManual(e.target.value)}/><button>OK</button></form>
@@ -360,31 +385,136 @@ function QuestionDrawer({token,round,categories,question,close,saved,notice}:{to
 function PlayerPage() {
   const state=usePublicState()
   const [session,setSession]=useState<TeamSession|null>(()=>{try{return JSON.parse(localStorage.getItem(TEAM_STORAGE)||'null')}catch{return null}})
-  const [name,setName]=useState('');const [notice,setNotice]=useState('');const [busy,setBusy]=useState(false);const [buzzed,setBuzzed]=useState(false)
+  const [authMode,setAuthMode]=useState<'register'|'recover'>('register')
+  const [name,setName]=useState('')
+  const [recoverName,setRecoverName]=useState('')
+  const [recoverCode,setRecoverCode]=useState('')
+  const [welcomeCode,setWelcomeCode]=useState<string|null>(null)
+  const [notice,setNotice]=useState('')
+  const [busy,setBusy]=useState(false)
+  const [buzzed,setBuzzed]=useState(false)
+
+  const persistSession = useCallback((s:TeamSession) => {
+    localStorage.setItem(TEAM_STORAGE,JSON.stringify(s))
+    setSession(s)
+  },[])
 
   useEffect(()=>{
     if(session)return
     const query=location.hash.split('?')[1];if(!query)return
     const p=new URLSearchParams(query),id=p.get('team'),token=p.get('token');if(!id||!token)return
-    void rpc<any>('get_team_session',{p_team_id:id,p_team_token:token}).then(data=>{const s={team_id:data.team_id,team_name:data.team_name,team_token:token,event_id:data.event_id};localStorage.setItem(TEAM_STORAGE,JSON.stringify(s));setSession(s)}).catch(e=>setNotice(msg(e)))
-  },[session])
+    void rpc<any>('get_team_session',{p_team_id:id,p_team_token:token}).then(data=>{
+      persistSession({team_id:data.team_id,team_name:data.team_name,team_token:token,recovery_code:data.recovery_code,event_id:data.event_id})
+    }).catch(e=>setNotice(msg(e)))
+  },[session,persistSession])
+
+  useEffect(()=>{
+    if(!session)return
+    void rpc<any>('get_team_session',{p_team_id:session.team_id,p_team_token:session.team_token}).then(data=>{
+      const refreshed={...session,team_name:data.team_name,recovery_code:data.recovery_code,event_id:data.event_id}
+      if(JSON.stringify(refreshed)!==JSON.stringify(session))persistSession(refreshed)
+    }).catch(e=>{
+      const text=msg(e)
+      if(text.includes('Sessione squadra')||text.includes('non è più attiva')){
+        localStorage.removeItem(TEAM_STORAGE);setSession(null);setNotice(text)
+      }
+    })
+  },[session?.team_id,session?.team_token,persistSession])
+
   useEffect(()=>{if(state.buzzer?.status==='OPEN')setBuzzed(false)},[state.buzzer?.id,state.buzzer?.status])
-  async function register(e:FormEvent){e.preventDefault();setBusy(true);try{const s=await rpc<TeamSession>('register_team',{p_name:name});localStorage.setItem(TEAM_STORAGE,JSON.stringify(s));setSession(s)}catch(e){setNotice(msg(e))}finally{setBusy(false)}}
-  async function buzz(){if(!session||state.buzzer?.status!=='OPEN'||buzzed)return;setBusy(true);try{if('vibrate'in navigator)navigator.vibrate(35);const r=await rpc<{accepted:boolean;winner_team_name?:string}>('press_buzzer',{p_team_id:session.team_id,p_team_token:session.team_token});setBuzzed(true);if(r.accepted&&'vibrate'in navigator)navigator.vibrate([100,60,180]);await state.reload()}catch(e){setNotice(msg(e))}finally{setBusy(false)}}
-  function leave(){localStorage.removeItem(TEAM_STORAGE);setSession(null);setBuzzed(false)}
-  if(!session)return <main className="auth-page player-auth"><button className="back" onClick={()=>go('home')}>←</button><form className="auth-card glass" onSubmit={register}><Logo/><p className="eyebrow">ISCRIZIONE SQUADRA</p><h1>Come vi chiamate?</h1><input value={name} onChange={e=>setName(e.target.value)} placeholder="Nome della squadra" maxLength={60}/>{notice&&<div className="alert">{notice}</div>}{!state.event?.registration_open&&<div className="alert">🔒 Iscrizioni momentaneamente chiuse.</div>}<button className="primary giant" disabled={busy||!state.event?.registration_open||name.trim().length<2}>Iscriviti</button></form></main>
+
+  async function register(e:FormEvent){
+    e.preventDefault();setBusy(true);setNotice('')
+    try{
+      const s=await rpc<TeamSession>('register_team',{p_name:name})
+      persistSession(s)
+      setWelcomeCode(s.recovery_code||null)
+    }catch(e){setNotice(msg(e))}finally{setBusy(false)}
+  }
+
+  async function recover(e:FormEvent){
+    e.preventDefault();setBusy(true);setNotice('')
+    try{
+      const s=await rpc<TeamSession>('recover_team',{p_name:recoverName,p_recovery_code:recoverCode})
+      persistSession(s);setRecoverCode('');setNotice('')
+    }catch(e){setNotice(msg(e))}finally{setBusy(false)}
+  }
+
+  async function buzz(){
+    if(!session||state.buzzer?.status!=='OPEN'||buzzed)return
+    setBusy(true)
+    try{
+      if('vibrate'in navigator)navigator.vibrate(35)
+      const r=await rpc<{accepted:boolean;winner_team_name?:string}>('press_buzzer',{p_team_id:session.team_id,p_team_token:session.team_token})
+      setBuzzed(true)
+      if(r.accepted&&'vibrate'in navigator)navigator.vibrate([100,60,180])
+      await state.reload()
+    }catch(e){setNotice(msg(e))}finally{setBusy(false)}
+  }
+
+  function leave(){
+    const code=session?.recovery_code ? ` Il vostro codice di rientro è ${session.recovery_code}.` : ''
+    if(!confirm(`Vuoi cambiare squadra su questo dispositivo?${code} Per rientrare serviranno nome squadra e codice.`))return
+    localStorage.removeItem(TEAM_STORAGE);setSession(null);setBuzzed(false);setAuthMode('recover')
+    setRecoverName(session?.team_name||'');setNotice('')
+  }
+
+  if(!session)return <main className="auth-page player-auth">
+    <button className="back" onClick={()=>go('home')}>←</button>
+    <section className="auth-card glass">
+      <Logo/>
+      <p className="eyebrow">MODALITÀ SQUADRA</p>
+      <div className="auth-switch">
+        <button className={authMode==='register'?'active':''} onClick={()=>{setAuthMode('register');setNotice('')}}>Nuova squadra</button>
+        <button className={authMode==='recover'?'active':''} onClick={()=>{setAuthMode('recover');setNotice('')}}>Rientra</button>
+      </div>
+      {authMode==='register'
+        ? <form onSubmit={register}>
+            <h1>Come vi chiamate?</h1>
+            <p className="auth-copy">Iscrivete la squadra una volta sola: questo telefono resterà collegato automaticamente.</p>
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder="Nome della squadra" maxLength={60}/>
+            {notice&&<div className="alert">{notice}</div>}
+            {!state.event?.registration_open&&<div className="alert">🔒 Iscrizioni momentaneamente chiuse.</div>}
+            <button className="primary giant" disabled={busy||!state.event?.registration_open||name.trim().length<2}>Iscriviti</button>
+          </form>
+        : <form onSubmit={recover}>
+            <h1>Bentornati.</h1>
+            <p className="auth-copy">Inserite il nome esatto della squadra e il codice di rientro ricevuto all'iscrizione.</p>
+            <label>Nome squadra</label>
+            <input value={recoverName} onChange={e=>setRecoverName(e.target.value)} placeholder="Es. Deep Thought" maxLength={60}/>
+            <label>Codice di rientro</label>
+            <input className="recovery-input" inputMode="numeric" pattern="[0-9]{4}" maxLength={4} value={recoverCode} onChange={e=>setRecoverCode(e.target.value.replace(/\D/g,'').slice(0,4))} placeholder="0000"/>
+            {notice&&<div className="alert">{notice}</div>}
+            <button className="primary giant" disabled={busy||recoverName.trim().length<2||recoverCode.length!==4}>Rientra nella squadra</button>
+          </form>}
+    </section>
+  </main>
+
+  if(welcomeCode)return <main className="recovery-onboarding">
+    <section className="recovery-card">
+      <Logo/>
+      <p className="eyebrow">ISCRIZIONE COMPLETATA</p>
+      <h1>Tenete questo codice.</h1>
+      <p>Serve solo se dovete rientrare nella squadra da un altro telefono o dopo aver cancellato la sessione.</p>
+      <div className="recovery-code-big">{welcomeCode}</div>
+      <small>Squadra · <b>{session.team_name}</b></small>
+      <button className="primary giant" onClick={()=>setWelcomeCode(null)}>Ho salvato il codice</button>
+    </section>
+  </main>
+
   const team=state.teams.find(t=>t.id===session.team_id)
   const winner=state.teams.find(t=>t.id===state.buzzer?.winner_team_id)
   const open=state.buzzer?.status==='OPEN'
   return <main className={`player-live ${open?'open':''}`}>
-    <header><Logo compact/><div><b>{team?.name||session.team_name}</b><span>{team?.score||0} pt</span></div></header>
+    <header><Logo compact/><div><b>{team?.name||session.team_name}</b><span>{team?.score||0} pt{session.recovery_code ? ` · codice ${session.recovery_code}` : ''}</span></div></header>
     <section>
-      {open&&!buzzed?<><div className="player-state">● BUZZER APERTO</div><button className="buzzer" onClick={buzz} disabled={busy}><b>BUZZ</b><span>{busy?'INVIO…':'PRENOTATI'}</span></button><p>La prima pressione valida viene registrata dal server.</p></>
+      {open&&!buzzed?<><div className="player-state">● BUZZER APERTO</div><button className="buzzer" onClick={buzz} disabled={busy}><b>42!</b><span>{busy?'INVIO…':'PRENOTATI'}</span></button><p>La prima pressione valida viene registrata dal server.</p></>
       :winner?.id===session.team_id?<div className="result won"><span>⚡</span><small>PRENOTAZIONE RIUSCITA</small><h1>SIETE I PRIMI!</h1><p>Aspettate l'indicazione del Master.</p></div>
       :winner?<div className="result"><span>⏱</span><small>BUZZER CHIUSO</small><h1>{winner.name}</h1><p>si è prenotata per prima.</p></div>
       :<div className="result"><span>🔒</span><small>BUZZER BLOCCATO</small><h1>Aspettate il Master</h1><p>Il pulsante si attiverà automaticamente.</p></div>}
       {notice&&<div className="alert">{notice}</div>}
-    </section><footer><button className="ghost" onClick={leave}>Esci da questa squadra</button></footer>
+    </section>
+    <footer><button className="ghost" onClick={leave}>Cambia squadra</button></footer>
   </main>
 }
 
