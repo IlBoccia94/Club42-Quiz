@@ -595,6 +595,11 @@ function PlayerPage() {
   const interactionMode=state.buzzer?.interaction_mode || 'BUZZER'
   const questionType=String(state.screen?.payload?.question_type || '')
   const isTrueFalse=questionType==='TRUE_FALSE'
+  const questionMatchesInteraction = !state.buzzer?.question_id
+    || state.screen?.source_question_id===state.buzzer?.question_id
+    || state.event?.current_question_id===state.buzzer?.question_id
+  const visibleQuestion = questionMatchesInteraction && state.screen?.mode==='QUESTION' ? state.screen.title : null
+  const visibleQuestionDetail = questionMatchesInteraction && state.screen?.mode==='QUESTION' ? state.screen.body : null
   const optionLabels=isTrueFalse
     ? [{key:'V',text:'VERO'},{key:'F',text:'FALSO'}]
     : (Array.isArray(state.screen?.options)&&state.screen!.options.length
@@ -604,6 +609,11 @@ function PlayerPage() {
   return <main className={`player-live ${open?'open':''} mode-${interactionMode.toLowerCase()}`}>
     <header><Logo compact/><div><b>{team?.name||session.team_name}</b><span>{team?.score||0} pt{session.recovery_code ? ` · codice ${session.recovery_code}` : ''}</span></div></header>
     <section>
+      {visibleQuestion && <div className="player-question-card">
+        {state.screen?.round_name && <span className="player-question-round">{state.screen.round_name}</span>}
+        <h2>{visibleQuestion}</h2>
+        {visibleQuestionDetail && <p>{visibleQuestionDetail}</p>}
+      </div>}
       {open && interactionMode==='CHOICE'
         ? <div className="choice-live">
             <div className="player-state">● RISPOSTE APERTE</div>
