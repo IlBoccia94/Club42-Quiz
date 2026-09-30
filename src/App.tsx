@@ -6,6 +6,8 @@ const MASTER_STORAGE = 'club42_master_session'
 const TEAM_STORAGE = 'club42_team_session'
 const SCORE_DELTAS = [-20, -15, -10, -5, 5, 10, 15, 20]
 const LETTERS = ['A', 'B', 'C', 'D']
+const LOGO_URL = `${import.meta.env.BASE_URL}images/IMG-20260914-WA0013.jpg`
+const SCREEN_BG_URL = `${import.meta.env.BASE_URL}images/IMG-20260914-WA0075.jpg`
 type Route = 'home' | 'master' | 'player' | 'screen'
 type PublicState = ReturnType<typeof usePublicState>
 
@@ -37,8 +39,8 @@ async function rpc<T = unknown>(name: string, params: Record<string, unknown>) {
 }
 function Logo({ compact = false }: { compact?: boolean }) {
   return <div className={`brand ${compact ? 'compact' : ''}`}>
-    <div className="brand-mark">42</div>
-    <div className="brand-text"><b>CLUB42</b>{!compact && <span>Quiz a squadre</span>}</div>
+    <img className="brand-logo" src={LOGO_URL} alt="Club42" />
+    {!compact && <span className="brand-subtitle">Quiz a squadre</span>}
   </div>
 }
 
@@ -528,7 +530,10 @@ function ScreenCanvas({screen,teams,preview=false}:{screen:ScreenState|null;team
   if(screen.blackout)return <div className="screen-canvas blackout"><div className="big42">42</div><b>CLUB42</b></div>
   const board=teams.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name,'it'))
   const options=Array.isArray(screen.options)?screen.options.map(String):[]
-  return <div className={`screen-canvas ${preview?'preview':''} mode-${screen.mode.toLowerCase()}`}>
+  return <div
+    className={`screen-canvas ${preview?'preview':''} mode-${screen.mode.toLowerCase()}`}
+    style={{ backgroundImage: `linear-gradient(rgba(247,244,235,.90), rgba(247,244,235,.90)), url("${SCREEN_BG_URL}")` }}
+  >
     <div className="screen-top"><Logo compact/>{screen.round_name&&<b>{screen.round_name}</b>}</div>
     {screen.mode==='LOGO'&&<div className="screen-center logo-screen"><div className="big42">42</div><h1>{screen.title||'CLUB42'}</h1><p>{screen.body||'Quiz a squadre'}</p></div>}
     {screen.mode==='ROUND'&&<div className="screen-center"><small>PROSSIMO ROUND</small><h1>{screen.title}</h1><p>{screen.body}</p></div>}
