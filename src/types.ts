@@ -30,6 +30,7 @@ export interface BuzzerWindow {
   event_id: string
   question_id: string | null
   status: 'OPEN' | 'CLOSED'
+  interaction_mode: 'BUZZER' | 'CHOICE'
   winner_team_id: string | null
   opened_at: string
   closed_at: string | null
