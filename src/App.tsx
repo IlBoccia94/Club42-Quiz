@@ -10,6 +10,19 @@ const LOGO_URL = `${import.meta.env.BASE_URL}images/IMG-20260914-WA0013.jpg`
 const SCREEN_BG_URL = `${import.meta.env.BASE_URL}images/IMG-20260914-WA0075.jpg`
 type Route = 'home' | 'master' | 'player' | 'screen'
 type PublicState = ReturnType<typeof usePublicState>
+type LiveInteractionResponse = { team_id: string; team_name: string; choice: string | null; answered_at: string | null }
+type LiveInteraction = {
+  window_id: string | null
+  mode: 'BUZZER' | 'CHOICE' | null
+  status: 'OPEN' | 'CLOSED' | null
+  winner_team_id: string | null
+  opened_at?: string | null
+  closed_at?: string | null
+  responses: LiveInteractionResponse[]
+}
+function questionInteractionMode(question?: QuizQuestion | null): 'BUZZER' | 'CHOICE' {
+  return question?.question_type === 'MULTIPLE_CHOICE' || question?.question_type === 'TRUE_FALSE' ? 'CHOICE' : 'BUZZER'
+}
 
 function currentRoute(): Route {
   const route = location.hash.replace(/^#\/?/, '').split('?')[0]
@@ -28,6 +41,8 @@ function msg(error: unknown) {
     SQUADRA_NON_ATTIVA: 'Questa squadra non è più attiva.',
     DOMANDA_NON_TROVATA: 'Domanda non trovata.',
     CODICE_RIENTRO_NON_VALIDO: 'Nome squadra o codice di rientro non corretti.',
+    RISPOSTE_CHIUSE: 'Le risposte sono chiuse.',
+    RISPOSTA_NON_VALIDA: 'Risposta non valida.',
   }
   const key = Object.keys(known).find(k => raw.includes(k))
   return key ? known[key] : raw
@@ -191,6 +206,9 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
   }, 'Schermo aggiornato.')
 
   const winner = state.teams.find(t => t.id === state.buzzer?.winner_team_id)
+  const interactionMode = questionInteractionMode(question)
+  const interactionOpen = state.buzzer?.status === 'OPEN'
+  const activeInteractionMode = state.buzzer?.interaction_mode || interactionMode
   const clueScores = Array.isArray(round?.config?.scores) ? round?.config?.scores as number[] : [20,15,10,5,5]
 
   return <main className="master-content live-layout">
@@ -247,11 +265,12 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
         <button className={state.event?.registration_open?'success big':'secondary big'} onClick={()=>run('master_set_registration',{p_open:!state.event?.registration_open},state.event?.registration_open?'Iscrizioni chiuse.':'Iscrizioni aperte.')}>{state.event?.registration_open?'APERTE · Chiudi':'CHIUSE · Apri'}</button>
       </div>
       <div className="control-block buzzer-control">
-        <span>Buzzer</span>
-        {state.buzzer?.status === 'OPEN'
-          ? <button className="danger big pulse" onClick={()=>run('master_close_buzzer',{},'Buzzer chiuso.')}>APERTO · Blocca</button>
-          : <button className="primary big" onClick={()=>run('master_open_buzzer',{p_question_id:question?.id || null},'Buzzer aperto.')}>Apri buzzer</button>}
-        {winner && <div className="winner"><small>PRENOTATA</small><b>⚡ {winner.name}</b></div>}
+        <span>{interactionMode === 'CHOICE' ? 'Risposte squadre' : 'Prenotazione risposta'}</span>
+        {interactionOpen
+          ? <button className="danger big pulse" onClick={()=>run('master_close_buzzer',{},activeInteractionMode === 'CHOICE' ? 'Risposte chiuse.' : 'Buzzer chiuso.')}>{activeInteractionMode === 'CHOICE' ? 'RISPOSTE APERTE · Chiudi' : 'BUZZER APERTO · Blocca'}</button>
+          : <button className="primary big" onClick={()=>run('master_open_interaction',{p_question_id:question?.id || null,p_mode:interactionMode},interactionMode === 'CHOICE' ? 'Risposte aperte.' : 'Buzzer aperto.')}>{interactionMode === 'CHOICE' ? 'Apri risposte' : 'Apri buzzer'}</button>}
+        {activeInteractionMode === 'BUZZER' && winner && <div className="winner"><small>PRIMA PRENOTATA</small><b>⚡ {winner.name}</b></div>}
+        {interactionMode === 'CHOICE' && <div className="interaction-hint">{question?.question_type === 'TRUE_FALSE' ? 'Tutte le squadre rispondono Vero/Falso contemporaneamente.' : 'Tutte le squadre possono selezionare A, B, C o D contemporaneamente.'}</div>}
       </div>
       <div className="mini-board">
         <div className="section-head"><b>Classifica</b><button onClick={()=>publish('LEADERBOARD','CLASSIFICA')}>Proietta</button></div>
@@ -264,17 +283,33 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
 function TeamsPanel({ token, state, notice }: { token:string; state:PublicState; notice:(s:string)=>void }) {
   const [newName,setNewName]=useState('')
   const [access,setAccess]=useState<TeamAccess[]>([])
+  const [liveInteraction,setLiveInteraction]=useState<LiveInteraction>({window_id:null,mode:null,status:null,winner_team_id:null,responses:[]})
 
   const loadAccess = useCallback(async () => {
+    try { setAccess(await rpc<TeamAccess[]>('master_get_team_access',{p_session_token:token}) || []) }
+    catch(e) { notice(msg(e)) }
+  },[token,notice])
+
+  const loadLiveInteraction = useCallback(async () => {
     try {
-      setAccess(await rpc<TeamAccess[]>('master_get_team_access',{p_session_token:token}) || [])
+      const data = await rpc<LiveInteraction>('master_get_live_interaction',{p_session_token:token})
+      setLiveInteraction({...data,responses:data?.responses || []})
     } catch(e) { notice(msg(e)) }
   },[token,notice])
 
-  useEffect(()=>{ void loadAccess() },[loadAccess])
+  useEffect(()=>{ void loadAccess(); void loadLiveInteraction() },[loadAccess,loadLiveInteraction])
+  useEffect(()=>{
+    const id = window.setInterval(()=>void loadLiveInteraction(),900)
+    return ()=>window.clearInterval(id)
+  },[loadLiveInteraction])
 
   async function call(name:string,args:Record<string,unknown>,ok:string) {
-    try { const data=await rpc<any>(name,{p_session_token:token,...args}); await state.reload(); notice(ok); return data } catch(e){notice(msg(e))}
+    try {
+      const data=await rpc<any>(name,{p_session_token:token,...args})
+      await Promise.all([state.reload(),loadLiveInteraction()])
+      notice(ok)
+      return data
+    } catch(e){notice(msg(e))}
   }
   async function add() {
     if(newName.trim().length<2)return
@@ -285,37 +320,74 @@ function TeamsPanel({ token, state, notice }: { token:string; state:PublicState;
       try {
         await navigator.clipboard.writeText(url)
         notice(`Squadra aggiunta · codice rientro ${data.recovery_code}. Link copiato.`)
-      } catch {
-        notice(`Squadra aggiunta · codice rientro ${data.recovery_code}.`)
-      }
+      } catch { notice(`Squadra aggiunta · codice rientro ${data.recovery_code}.`) }
     }
     setNewName('')
   }
+
   const codeByTeam = useMemo(()=>new Map(access.map(a=>[a.team_id,a.recovery_code])),[access])
+  const responseByTeam = useMemo(()=>new Map((liveInteraction.responses||[]).map(r=>[r.team_id,r])),[liveInteraction.responses])
+  const answeredCount = liveInteraction.responses.filter(r=>r.choice).length
 
   return <main className="master-content one-column">
     <section className="panel">
       <div className="section-head"><div><p className="eyebrow">GESTIONE</p><h2>Squadre · {state.teams.length}</h2></div><button className="secondary" onClick={()=>call('master_undo_last_score',{},'Ultima modifica punteggio annullata.')}>↶ Annulla ultimo punteggio</button></div>
-      <div className="team-help">Ogni squadra ha un <b>codice di rientro</b>: serve per recuperare l'accesso se cambia telefono, cancella i dati del browser o preme “Cambia squadra”.</div>
+      <div className="team-help">Ogni squadra ha un <b>codice di rientro</b>. Durante una domanda, questa lista mostra anche in tempo reale chi ha prenotato per primo oppure la risposta scelta da ciascuna squadra.</div>
+      {liveInteraction.mode && <div className={`interaction-summary mode-${liveInteraction.mode.toLowerCase()} ${liveInteraction.status?.toLowerCase()}`}>
+        <div><span>{liveInteraction.mode === 'BUZZER' ? 'BUZZER' : 'RISPOSTE'}</span><b>{liveInteraction.status === 'OPEN' ? 'APERTO' : 'CHIUSO'}</b></div>
+        {liveInteraction.mode === 'BUZZER'
+          ? <strong>{liveInteraction.winner_team_id ? 'Prima squadra identificata' : 'In attesa della prima squadra'}</strong>
+          : <strong>{answeredCount} / {state.teams.length} squadre hanno risposto</strong>}
+      </div>}
       <div className="add-team"><input value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Nome nuova squadra" onKeyDown={e=>{if(e.key==='Enter')void add()}}/><button className="primary" onClick={add}>+ Aggiungi</button></div>
       <div className="team-table">
-        {state.teams.slice().sort((a,b)=>b.score-a.score).map((team,index)=><TeamRow key={team.id} team={team} rank={index+1} recoveryCode={codeByTeam.get(team.id)} act={call}/>)}
+        {state.teams.slice().sort((a,b)=>b.score-a.score).map((team,index)=><TeamRow
+          key={team.id}
+          team={team}
+          rank={index+1}
+          recoveryCode={codeByTeam.get(team.id)}
+          interactionMode={liveInteraction.mode}
+          interactionStatus={liveInteraction.status}
+          isBuzzWinner={liveInteraction.mode==='BUZZER' && liveInteraction.winner_team_id===team.id}
+          response={responseByTeam.get(team.id)}
+          act={call}
+        />)}
         {!state.teams.length && <div className="empty">Nessuna squadra iscritta.</div>}
       </div>
     </section>
   </main>
 }
-function TeamRow({team,rank,recoveryCode,act}:{team:Team;rank:number;recoveryCode?:string;act:(name:string,args:Record<string,unknown>,ok:string)=>Promise<any>}) {
-  const [name,setName]=useState(team.name); const [manual,setManual]=useState(String(team.score))
+function TeamRow({
+  team,rank,recoveryCode,interactionMode,interactionStatus,isBuzzWinner,response,act
+}:{
+  team:Team
+  rank:number
+  recoveryCode?:string
+  interactionMode:LiveInteraction['mode']
+  interactionStatus:LiveInteraction['status']
+  isBuzzWinner:boolean
+  response?:LiveInteractionResponse
+  act:(name:string,args:Record<string,unknown>,ok:string)=>Promise<any>
+}) {
+  const [name,setName]=useState(team.name)
+  const [manual,setManual]=useState(String(team.score))
   useEffect(()=>{setName(team.name);setManual(String(team.score))},[team.name,team.score])
-  async function copyCode(){
-    if(!recoveryCode)return
-    try{await navigator.clipboard.writeText(recoveryCode)}catch{/* noop */}
-  }
-  return <div className="team-row">
+  async function copyCode(){ if(recoveryCode) try{await navigator.clipboard.writeText(recoveryCode)}catch{/* noop */} }
+
+  const interactionLabel = interactionMode === 'BUZZER'
+    ? (isBuzzWinner ? '1° BUZZ' : interactionStatus === 'OPEN' ? 'ATTESA' : '—')
+    : interactionMode === 'CHOICE'
+      ? (response?.choice || (interactionStatus === 'OPEN' ? '…' : '—'))
+      : '—'
+
+  return <div className={`team-row ${isBuzzWinner?'buzz-winner':''} ${response?.choice?'has-response':''}`}>
     <span className="rank">{rank}</span>
     <div className="team-name"><input value={name} onChange={e=>setName(e.target.value)} onBlur={()=>{if(name.trim()&&name.trim()!==team.name)void act('master_update_team',{p_team_id:team.id,p_name:name.trim(),p_active:true},'Nome aggiornato.')}}/><small>ID · {team.id.slice(0,8)}</small></div>
     <button className="code-pill" title="Copia codice di rientro" onClick={copyCode}><small>RIENTRO</small><b>{recoveryCode || '····'}</b></button>
+    <div className={`interaction-cell ${isBuzzWinner?'winner-cell':''} ${response?.choice?'answered':''}`}>
+      <small>{interactionMode === 'CHOICE' ? 'RISPOSTA' : 'LIVE'}</small>
+      <b>{interactionLabel}</b>
+    </div>
     <div className="score-quick">{SCORE_DELTAS.map(d=><button className={d<0?'minus':'plus'} key={d} onClick={()=>act('master_adjust_score',{p_team_id:team.id,p_delta:d,p_question_id:null,p_reason:'Correzione rapida'},`${d>0?'+':''}${d} a ${team.name}`)}>{d>0?'+':''}{d}</button>)}</div>
     <div className="score-value"><b>{team.score}</b><span>pt</span></div>
     <form className="manual-score" onSubmit={e=>{e.preventDefault();void act('master_set_score',{p_team_id:team.id,p_score:Number(manual),p_reason:'Impostazione manuale'},'Punteggio impostato.')}}><input type="number" value={manual} onChange={e=>setManual(e.target.value)}/><button>OK</button></form>
@@ -395,6 +467,7 @@ function PlayerPage() {
   const [notice,setNotice]=useState('')
   const [busy,setBusy]=useState(false)
   const [buzzed,setBuzzed]=useState(false)
+  const [selectedChoice,setSelectedChoice]=useState<string|null>(null)
 
   const persistSession = useCallback((s:TeamSession) => {
     localStorage.setItem(TEAM_STORAGE,JSON.stringify(s))
@@ -423,14 +496,18 @@ function PlayerPage() {
     })
   },[session?.team_id,session?.team_token,persistSession])
 
-  useEffect(()=>{if(state.buzzer?.status==='OPEN')setBuzzed(false)},[state.buzzer?.id,state.buzzer?.status])
+  useEffect(()=>{
+    if(state.buzzer?.status==='OPEN'){
+      setBuzzed(false)
+      setSelectedChoice(null)
+    }
+  },[state.buzzer?.id])
 
   async function register(e:FormEvent){
     e.preventDefault();setBusy(true);setNotice('')
     try{
       const s=await rpc<TeamSession>('register_team',{p_name:name})
-      persistSession(s)
-      setWelcomeCode(s.recovery_code||null)
+      persistSession(s);setWelcomeCode(s.recovery_code||null)
     }catch(e){setNotice(msg(e))}finally{setBusy(false)}
   }
 
@@ -443,7 +520,7 @@ function PlayerPage() {
   }
 
   async function buzz(){
-    if(!session||state.buzzer?.status!=='OPEN'||buzzed)return
+    if(!session||state.buzzer?.status!=='OPEN'||state.buzzer?.interaction_mode!=='BUZZER'||buzzed)return
     setBusy(true)
     try{
       if('vibrate'in navigator)navigator.vibrate(35)
@@ -454,10 +531,20 @@ function PlayerPage() {
     }catch(e){setNotice(msg(e))}finally{setBusy(false)}
   }
 
+  async function choose(choice:string){
+    if(!session||state.buzzer?.status!=='OPEN'||state.buzzer?.interaction_mode!=='CHOICE')return
+    setBusy(true);setNotice('')
+    try{
+      await rpc('submit_choice',{p_team_id:session.team_id,p_team_token:session.team_token,p_choice:choice})
+      setSelectedChoice(choice)
+      if('vibrate'in navigator)navigator.vibrate(35)
+    }catch(e){setNotice(msg(e))}finally{setBusy(false)}
+  }
+
   function leave(){
     const code=session?.recovery_code ? ` Il vostro codice di rientro è ${session.recovery_code}.` : ''
     if(!confirm(`Vuoi cambiare squadra su questo dispositivo?${code} Per rientrare serviranno nome squadra e codice.`))return
-    localStorage.removeItem(TEAM_STORAGE);setSession(null);setBuzzed(false);setAuthMode('recover')
+    localStorage.removeItem(TEAM_STORAGE);setSession(null);setBuzzed(false);setSelectedChoice(null);setAuthMode('recover')
     setRecoverName(session?.team_name||'');setNotice('')
   }
 
@@ -494,9 +581,7 @@ function PlayerPage() {
 
   if(welcomeCode)return <main className="recovery-onboarding">
     <section className="recovery-card">
-      <Logo/>
-      <p className="eyebrow">ISCRIZIONE COMPLETATA</p>
-      <h1>Tenete questo codice.</h1>
+      <Logo/><p className="eyebrow">ISCRIZIONE COMPLETATA</p><h1>Tenete questo codice.</h1>
       <p>Serve solo se dovete rientrare nella squadra da un altro telefono o dopo aver cancellato la sessione.</p>
       <div className="recovery-code-big">{welcomeCode}</div>
       <small>Squadra · <b>{session.team_name}</b></small>
@@ -507,13 +592,41 @@ function PlayerPage() {
   const team=state.teams.find(t=>t.id===session.team_id)
   const winner=state.teams.find(t=>t.id===state.buzzer?.winner_team_id)
   const open=state.buzzer?.status==='OPEN'
-  return <main className={`player-live ${open?'open':''}`}>
+  const interactionMode=state.buzzer?.interaction_mode || 'BUZZER'
+  const questionType=String(state.screen?.payload?.question_type || '')
+  const isTrueFalse=questionType==='TRUE_FALSE'
+  const optionLabels=isTrueFalse
+    ? [{key:'V',text:'VERO'},{key:'F',text:'FALSO'}]
+    : (Array.isArray(state.screen?.options)&&state.screen!.options.length
+        ? state.screen!.options.slice(0,4).map((o,i)=>({key:LETTERS[i],text:String(o)}))
+        : LETTERS.map(letter=>({key:letter,text:''})))
+
+  return <main className={`player-live ${open?'open':''} mode-${interactionMode.toLowerCase()}`}>
     <header><Logo compact/><div><b>{team?.name||session.team_name}</b><span>{team?.score||0} pt{session.recovery_code ? ` · codice ${session.recovery_code}` : ''}</span></div></header>
     <section>
-      {open&&!buzzed?<><div className="player-state">● BUZZER APERTO</div><button className="buzzer" onClick={buzz} disabled={busy}><b>42!</b><span>{busy?'INVIO…':'PRENOTATI'}</span></button><p>La prima pressione valida viene registrata dal server.</p></>
-      :winner?.id===session.team_id?<div className="result won"><span>⚡</span><small>PRENOTAZIONE RIUSCITA</small><h1>SIETE I PRIMI!</h1><p>Aspettate l'indicazione del Master.</p></div>
-      :winner?<div className="result"><span>⏱</span><small>BUZZER CHIUSO</small><h1>{winner.name}</h1><p>si è prenotata per prima.</p></div>
-      :<div className="result"><span>🔒</span><small>BUZZER BLOCCATO</small><h1>Aspettate il Master</h1><p>Il pulsante si attiverà automaticamente.</p></div>}
+      {open && interactionMode==='CHOICE'
+        ? <div className="choice-live">
+            <div className="player-state">● RISPOSTE APERTE</div>
+            <h1>{isTrueFalse ? 'Vero o falso?' : 'Scegli la risposta'}</h1>
+            <div className={`choice-grid ${isTrueFalse?'two':''}`}>
+              {optionLabels.map(opt=><button
+                key={opt.key}
+                className={selectedChoice===opt.key?'selected':''}
+                onClick={()=>choose(opt.key)}
+                disabled={busy}
+              ><strong>{opt.key}</strong>{opt.text&&<span>{opt.text}</span>}</button>)}
+            </div>
+            <p>{selectedChoice ? <>Risposta selezionata: <b>{selectedChoice}</b>. Puoi cambiarla finché il Master non chiude le risposte.</> : 'Tutte le squadre possono rispondere contemporaneamente.'}</p>
+          </div>
+        : open && interactionMode==='BUZZER' && !buzzed
+          ? <><div className="player-state">● PRENOTAZIONE APERTA</div><button className="buzzer" onClick={buzz} disabled={busy}><span className="buzzer-icon">⚡</span><b>PRENOTA</b><small>{busy?'INVIO…':'TOCCA PER RISPONDERE'}</small></button><p>Conta la prima pressione valida registrata dal server.</p></>
+          : interactionMode==='BUZZER' && winner?.id===session.team_id
+            ? <div className="result won"><span>⚡</span><small>PRENOTAZIONE RIUSCITA</small><h1>Siete i primi!</h1><p>Aspettate l'indicazione del Master.</p></div>
+            : interactionMode==='BUZZER' && winner
+              ? <div className="result"><span>⏱</span><small>PRENOTAZIONE CHIUSA</small><h1>{winner.name}</h1><p>si è prenotata per prima.</p></div>
+              : interactionMode==='CHOICE' && !open && selectedChoice
+                ? <div className="result choice-result"><span>✓</span><small>RISPOSTA REGISTRATA</small><h1>{selectedChoice}</h1><p>Le risposte sono state chiuse dal Master.</p></div>
+                : <div className="result"><span>🔒</span><small>IN ATTESA</small><h1>Aspettate il Master</h1><p>Il controllo corretto si attiverà automaticamente in base alla domanda.</p></div>}
       {notice&&<div className="alert">{notice}</div>}
     </section>
     <footer><button className="ghost" onClick={leave}>Cambia squadra</button></footer>
@@ -529,7 +642,10 @@ function ScreenCanvas({screen,teams,preview=false}:{screen:ScreenState|null;team
   if(!screen)return <div className="screen-canvas">Connessione…</div>
   if(screen.blackout)return <div className="screen-canvas blackout"><div className="big42">42</div><b>CLUB42</b></div>
   const board=teams.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name,'it'))
-  const options=Array.isArray(screen.options)?screen.options.map(String):[]
+  const rawOptions=Array.isArray(screen.options)?screen.options.map(String):[]
+  const trueFalse=String(screen.payload?.question_type || '') === 'TRUE_FALSE'
+  const options=trueFalse && rawOptions.length===0 ? ['VERO','FALSO'] : rawOptions
+  const optionLetters=trueFalse ? ['V','F'] : LETTERS
   return <div
     className={`screen-canvas ${preview?'preview':''} mode-${screen.mode.toLowerCase()}`}
     style={{ backgroundImage: `linear-gradient(rgba(247,244,235,.90), rgba(247,244,235,.90)), url("${SCREEN_BG_URL}")` }}
@@ -539,7 +655,7 @@ function ScreenCanvas({screen,teams,preview=false}:{screen:ScreenState|null;team
     {screen.mode==='ROUND'&&<div className="screen-center"><small>PROSSIMO ROUND</small><h1>{screen.title}</h1><p>{screen.body}</p></div>}
     {screen.mode==='PAUSE'&&<div className="screen-center"><small>DON'T PANIC</small><h1>{screen.title||'PAUSA'}</h1><p>{screen.body}</p></div>}
     {screen.mode==='CUSTOM'&&<div className="screen-center"><h1>{screen.title}</h1><p>{screen.body}</p></div>}
-    {screen.mode==='QUESTION'&&<div className="question-screen"><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className="answers">{options.map((o,i)=><div key={i}><span>{LETTERS[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
+    {screen.mode==='QUESTION'&&<div className="question-screen"><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
     {screen.mode==='ANSWER'&&<div className="screen-center answer"><small>RISPOSTA</small><h1>{screen.body}</h1>{typeof screen.payload?.question==='string'&&<p>{screen.payload.question}</p>}{screen.footer&&<div className="answer-note">{screen.footer}</div>}</div>}
     {screen.mode==='LEADERBOARD'&&<div className="board-screen"><h1>{screen.title||'CLASSIFICA'}</h1><div>{board.map((t,i)=><article key={t.id} className={`place-${i+1}`}><span>{i+1}</span><b>{t.name}</b><strong>{t.score}<small> pt</small></strong></article>)}</div></div>}
     <div className="screen-foot">club42 · la cultura passa anche attraverso il divertimento</div>
