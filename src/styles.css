@@ -1339,3 +1339,99 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
     flex-direction:column;
   }
 }
+
+
+/* Question visible on every team device while an interaction is active */
+.player-live>section{
+  overflow-y:auto;
+}
+.player-question-card{
+  width:min(760px,100%);
+  margin:0 auto 22px;
+  padding:20px 22px;
+  border-radius:24px;
+  background:rgba(255,253,249,.94);
+  border:1px solid rgba(33,98,119,.11);
+  box-shadow:0 12px 30px rgba(33,98,119,.10);
+  text-align:left;
+}
+.player-question-round{
+  display:inline-flex;
+  margin-bottom:9px;
+  padding:5px 10px;
+  border-radius:999px;
+  background:rgba(33,98,119,.08);
+  color:var(--blue);
+  font-family:var(--subtitle-font);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.player-question-card h2{
+  margin:0;
+  color:var(--blue);
+  font-family:var(--title-font);
+  font-size:clamp(28px,5vw,46px);
+  line-height:1;
+}
+.player-question-card p{
+  margin:12px 0 0;
+  padding:11px 13px;
+  border-radius:14px;
+  background:rgba(255,198,11,.16);
+  color:var(--ink);
+  font-size:14px;
+  line-height:1.45;
+}
+
+/* Keep answer text beside the A/B/C/D letter also on phones */
+@media(max-width:760px){
+  .player-live>section{
+    align-content:start;
+    padding-top:22px;
+    padding-bottom:28px;
+  }
+  .player-question-card{
+    margin-bottom:16px;
+    padding:17px 16px;
+    border-radius:20px;
+  }
+  .player-question-card h2{
+    font-size:clamp(27px,8vw,38px);
+  }
+  .choice-live h1{
+    font-size:34px;
+    margin-bottom:16px;
+  }
+  .choice-grid button{
+    min-height:100px;
+    grid-template-columns:52px 1fr;
+    justify-items:stretch;
+    text-align:left;
+    gap:11px;
+    padding:12px;
+  }
+  .choice-grid button strong{
+    width:52px;
+    height:52px;
+    border-radius:16px;
+    font-size:26px;
+  }
+  .choice-grid button span{
+    align-self:center;
+    font-size:12px;
+    line-height:1.3;
+  }
+}
+@media(max-width:480px){
+  .choice-grid{
+    grid-template-columns:1fr;
+  }
+  .choice-grid.two{
+    max-width:none;
+  }
+  .choice-grid button{
+    min-height:78px;
+  }
+}
