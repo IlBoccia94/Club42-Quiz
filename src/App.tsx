@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import { EVENT_ID, supabase } from './lib/supabase'
+import Soundboard from './Soundboard'
 import type { BuzzerWindow, Category, QuizEvent, QuizQuestion, QuizRound, RoundTemplate, ScreenMode, ScreenState, Team, TeamAccess, TeamSession } from './types'
 
 const MASTER_STORAGE = 'club42_master_session'
@@ -137,7 +138,8 @@ function MasterPage() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(MASTER_STORAGE))
   const [password, setPassword] = useState('')
   const [toast, setToast] = useState('')
-  const [tab, setTab] = useState<'live' | 'teams' | 'questions'>('live')
+  const [tab, setTab] = useState<'live' | 'teams' | 'sounds'>('live')
+  const [questionsPage, setQuestionsPage] = useState(false)
   const [quiz, setQuiz] = useState<QuizRound[]>([])
   const [desktopLayout, setDesktopLayout] = useState(() => window.matchMedia('(min-width: 1200px)').matches)
 
@@ -185,10 +187,11 @@ function MasterPage() {
   return <div className="master-page">
     <header className="master-header">
       <button className="brand-btn" onClick={() => go('home')}><Logo compact/></button>
-      <nav className="master-tabs" aria-label="Sezioni della regia">
-        {(['live','teams','questions'] as const).map(x => <button key={x} className={tab===x?'active':''} onClick={() => setTab(x)}>{x==='live'?'Regia Live':x==='teams'?'Squadre':'Domande'}</button>)}
+      <nav className="master-tabs" aria-label="Sezioni regia">
+        {(['live','teams','sounds'] as const).map(x => <button key={x} className={!questionsPage&&tab===x?'active':''} onClick={() => {setQuestionsPage(false);setTab(x)}}>{x==='live'?'Regia Live':x==='teams'?'Squadre':'Suoni'}</button>)}
       </nav>
       <div className="master-header-actions">
+        <button className={questionsPage?'master-questions-link selected':'master-questions-link'} onClick={()=>setQuestionsPage(current=>!current)}>{questionsPage?'← Regia':'Domande ›'}</button>
         <a className="master-screen-shortcut" href="#/screen" target="_blank" rel="noopener noreferrer" aria-label="Apri lo schermo pubblico in una nuova scheda" title="Apri lo schermo pubblico in una nuova scheda">
           <span className="shortcut-label">Apri schermo</span><span aria-hidden="true">↗</span>
         </a>
@@ -197,7 +200,10 @@ function MasterPage() {
     </header>
     {toast && <button className="toast" onClick={() => setToast('')}>{toast} ×</button>}
     {state.error && <div className="toast error">{state.error}</div>}
-    <div className="master-dashboard">
+    {questionsPage ? <div className="master-questions-page">
+      <div className="master-questions-title"><div><p className="eyebrow">GESTIONE QUIZ</p><h1>Round e domande</h1></div><button className="secondary" onClick={()=>setQuestionsPage(false)}>← Torna alla regia</button></div>
+      <QuestionsPanel token={token} state={state} quiz={quiz} reloadQuiz={loadQuiz} notice={setToast}/>
+    </div> : <div className="master-dashboard">
       {(desktopLayout || tab === 'live') && <section className="master-column" aria-label="Regia Live">
         <div className="master-column-header"><h2>Regia Live</h2><span>Comandi e proiezione</span></div>
         <LivePanel token={token} state={state} quiz={quiz} notice={setToast}/>
@@ -206,11 +212,11 @@ function MasterPage() {
         <div className="master-column-header"><h2>Squadre</h2><span>Punteggi e risposte</span></div>
         <TeamsPanel token={token} state={state} notice={setToast}/>
       </section>}
-      {(desktopLayout || tab === 'questions') && <section className="master-column" aria-label="Domande">
-        <div className="master-column-header"><h2>Domande</h2><span>Round e gestione quiz</span></div>
-        <QuestionsPanel token={token} state={state} quiz={quiz} reloadQuiz={loadQuiz} notice={setToast}/>
+      {(desktopLayout || tab === 'sounds') && <section className="master-column" aria-label="Effetti sonori">
+        <div className="master-column-header"><h2>Suoni</h2><span>Effetti e timer</span></div>
+        <Soundboard/>
       </section>}
-    </div>
+    </div>}
   </div>
 }
 
