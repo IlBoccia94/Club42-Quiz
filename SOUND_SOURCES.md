@@ -1,29 +1,36 @@
-# Soundboard Club42 — Myinstants
+# Myinstants — Soundboard Club42
 
-## Integrazione
+## Raccolta ampliata
 
-La Soundboard utilizza **36 iframe ufficiali** della ricerca [Quiz Soundboard su Myinstants](https://www.myinstants.com/en/search/?name=quiz) (consultata il 12 ottobre 2026).
+La regia incorpora **114 pulsanti distinti** ricavati da pagine Myinstants effettivamente individuate nelle ricerche:
 
-Per ogni pulsante:
-- la pagina del suono Myinstants offre una sezione **"Embed this button to your site!"** con iframe `110 × 200`;
-- l'app usa l'URL `https://www.myinstants.com/instant/<slug>/embed/`, come nella sezione Embed originale;
-- il browser carica e riproduce il contenuto direttamente da Myinstants. **Non scarichiamo, copiamo né pubblichiamo file MP3 nel repository Club42**;
-- il pulsante ★ memorizza i preferiti solo nel `localStorage` del browser;
-- il filtro "In evidenza" offre una selezione rapida, mentre "Tutti" include tutti i 36 suoni;
-- "Stop tutti" forza il ricaricamento degli iframe (necessario perché i player sono cross-origin).
+- [Quiz](https://www.myinstants.com/en/search/?name=quiz) — 36 pulsanti originali
+- [Countdown](https://www.myinstants.com/en/search/?name=countdown)
+- [Timer](https://www.myinstants.com/en/search/?name=timer)
+- [Buzzer](https://www.myinstants.com/en/search/?name=buzzer)
+- [Correct](https://www.myinstants.com/en/search/?name=correct)
+- [Wrong](https://www.myinstants.com/en/search/?name=wrong)
+- [Applause](https://www.myinstants.com/en/search/?name=applause)
+- [Drum roll](https://www.myinstants.com/en/search/?name=drum+roll)
+- [Suspense](https://www.myinstants.com/en/search/?name=suspense)
 
-Esempio documentato da Myinstants:
-- [Family Fortunes Ding](https://www.myinstants.com/en/instant/family-fortunes-ding-83918/) → `https://www.myinstants.com/instant/family-fortunes-ding-83918/embed/`
+I titoli e gli slug sono nel file `src/Soundboard.tsx`. Tutti gli iframe utilizzano il percorso Myinstants `https://www.myinstants.com/instant/<slug>/embed/`, secondo la funzione Embed pubblicata nelle pagine originali.
 
-## Limiti tecnici
+Non è praticabile incorporare letteralmente tutto il catalogo globale di Myinstants, che contiene migliaia di suoni e cambia continuamente. In compenso è disponibile il modulo **Aggiungi pulsante**: supporta un URL Myinstants della pagina singola, l'URL di un embed o un codice iframe ufficiale; la pagina convalida il dominio e lo slug e memorizza fino a 500 inserimenti in `localStorage` sul dispositivo corrente.
 
-- **Serve Internet.** La disponibilità e il comportamento dei player dipendono da Myinstants e dalle impostazioni del browser.
-- I pulsanti sono iframe di terze parti: l'app ospitante **non può regolare il volume interno** o gestire individualmente play/pause tramite DOM, a causa dell'isolamento cross-origin.
-- Per fermare tutti i suoni contemporaneamente si ricaricano i pulsanti. Non è garantito che premere un altro iframe metta in pausa il precedente.
-- L'audio esce dal PC della regia, non dalla scheda `#/screen`. Per la sala serve un collegamento dell'uscita audio del dispositivo al sistema di amplificazione.
+## Arresto immediato del suono
 
-## Diritti e utilizzo pubblico
+Myinstants carica i player in iframe **cross-origin**, pertanto il JavaScript della regia non può accedere agli elementi `audio` interni degli iframe. La soluzione attuale ferma i suoni rimuovendo gli iframe dal documento e ricreandoli dopo 400 ms.
 
-L'esistenza del widget "Embed" indica che **Myinstants propone un metodo tecnico per incorporare i propri pulsanti**. Non dimostra però che tutti i suoni caricati dagli utenti siano liberi da diritti di terzi, né autorizza necessariamente l'esecuzione pubblica (per esempio di estratti di trasmissioni TV e brani musicali).
+- **STOP AUDIO**: pulsante rosso prominente e sticky, ferma tutti i player attualmente renderizzati.
+- **■ Ferma**: interrompe il singolo iframe senza toccare gli altri.
+- **Esc**: attiva STOP AUDIO quando il focus tastiera è sulla pagina della regia. Il browser non inoltra necessariamente gli eventi da dentro iframe di un dominio diverso.
+- Cambiare un filtro o una ricerca interrompe i player prima di mostrare l'elenco aggiornato.
 
-Termini di utilizzo: https://www.myinstants.com/en/terms_of_use.html . In particolare i termini descrivono l'accesso come limitato all'uso personale non commerciale, e il contenuto caricato può includere opere di terzi. Prima di usare determinati audio in eventi pubblici dell'associazione, è opportuno verificarne la situazione dei diritti, se necessario con titolari/licenzianti e con le autorizzazioni pertinenti.
+La pagina carica 18 pulsanti per volta, con "Mostra altri", così da non scaricare decine di iframe contemporaneamente. I preferiti originali continuano a essere memorizzati sul browser tramite `club42_quiz_myinstants_favorites`.
+
+## Diritti e utilizzo
+
+Il sito Myinstants fornisce un codice iframe ufficiale per incorporare il pulsante. Ciò **non certifica** che tutti i file caricati dagli utenti siano privi di diritti di terzi o utilizzabili pubblicamente durante un evento. Per determinati suoni estratti da programmi televisivi o musica possono occorrere autorizzazioni specifiche. Si devono rispettare i [termini di Myinstants](https://www.myinstants.com/en/terms_of_use.html) e gli eventuali diritti dei creatori dei singoli audio.
+
+Gli iframe richiedono una connessione Internet. La riproduzione avviene sul dispositivo della regia; l'audio non viene inviato automaticamente alla vista pubblica `#/screen`.
