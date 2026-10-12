@@ -1,26 +1,29 @@
-# Soundboard Club42 — fonti copyleft
+# Soundboard Club42 — Myinstants
 
-Tutti i campioni selezionati per questa versione sono opere disponibili con licenza **Creative Commons Attribution–ShareAlike (CC BY-SA)**. Le licenze e gli autori sono riportati sotto: chi usa o ridistribuisce file adattati deve mantenere la licenza compatibile e riconoscere gli autori secondo i relativi termini. CC0 e CC BY da sole non sono copyleft; in questa versione non vengono utilizzate come licenza esclusiva dei brani.
+## Integrazione
 
-**Importante:** i file audio vengono caricati da OpenGameArt.org o Wikimedia Commons via URL del file originale. Sono collegamenti esterni e richiedono Internet. Non sono stati inclusi né ricampionati nel repository. L'audio viene riprodotto dal computer Master, non dallo schermo pubblico.
+La Soundboard utilizza **36 iframe ufficiali** della ricerca [Quiz Soundboard su Myinstants](https://www.myinstants.com/en/search/?name=quiz) (consultata il 12 ottobre 2026).
 
-## Crediti audio
+Per ogni pulsante:
+- la pagina del suono Myinstants offre una sezione **"Embed this button to your site!"** con iframe `110 × 200`;
+- l'app usa l'URL `https://www.myinstants.com/instant/<slug>/embed/`, come nella sezione Embed originale;
+- il browser carica e riproduce il contenuto direttamente da Myinstants. **Non scarichiamo, copiamo né pubblichiamo file MP3 nel repository Club42**;
+- il pulsante ★ memorizza i preferiti solo nel `localStorage` del browser;
+- il filtro "In evidenza" offre una selezione rapida, mentre "Tutti" include tutti i 36 suoni;
+- "Stop tutti" forza il ricaricamento degli iframe (necessario perché i player sono cross-origin).
 
-| Pulsante / uso | Autore e opera | Licenza | Pagina originale |
-| --- | --- | --- | --- |
-| Corretta, campanella, rivelazione | Wandering Door Games — *Dings* (`ding_double_01.ogg`, `ding_01.ogg`, `ding_03.ogg`) | CC BY-SA 4.0 | https://opengameart.org/content/dings-0 |
-| Sbagliata, Grande vittoria, Campioni! | Spring/Spring Enterprises — *Fanfares* (`LOSE.ogg`, `VICTORY.ogg`, `WIN_AGAINST_CHAMPION.ogg`) | CC BY-SA 4.0 (una delle licenze offerte) | https://opengameart.org/content/fanfares |
-| 5, 4, 3, 2, 1 / Tempo scaduto / Inizio round / Finale / Fallimento / Game Over / Winner | VoiceBosch — *MR. HAPPY - Video Game Announcer* (`26._countdown_-_5_4_3_2_1.wav`, `27._time.wav`, `09._round_1.wav`, `13._final_round.wav`, `20._failure.wav`, `31._game_over.wav`, `22._winner.wav`) | CC BY-SA 4.0 | https://opengameart.org/content/mr-happy-video-game-announcer |
-| Countdown da 10/30 secondi e Tensione | Ivy Fae (lalanl) — *Suspense* (`suspense.mp3`) | CC BY-SA 3.0 | https://opengameart.org/content/suspense |
-| Musica d'attesa | Eliot Corley — *Title/Menu Screen BGM* (`Dream.mp3`) | CC BY-SA 3.0 | https://opengameart.org/content/titlemenu-screen-bgm |
-| Colpo di scena | Jason Dagenet (jdagenet) — *Realization* (`MS_Realization.wav`) | CC BY-SA 3.0 | https://opengameart.org/content/realization |
-| Applausi (primi 8 secondi) | Sven Manguard, elaborazione da *Cavalleria Rusticana - Intermezzo Sinfonico* — *Applause.ogg* | CC BY-SA 3.0 | https://commons.wikimedia.org/wiki/File:Applause.ogg |
+Esempio documentato da Myinstants:
+- [Family Fortunes Ding](https://www.myinstants.com/en/instant/family-fortunes-ding-83918/) → `https://www.myinstants.com/instant/family-fortunes-ding-83918/embed/`
 
-## Dettagli implementativi
+## Limiti tecnici
 
-- Volume e interruzione gestiti nel browser Master.
-- Un solo effetto principale alla volta. Nei timer da 10 e 30 secondi il brano di suspense accompagna un countdown grafico; ai cinque secondi finali si aggiunge la voce dell'annunciatore.
-- Il pulsante Applausi ferma la registrazione automaticamente dopo 8 secondi (ritaglio di riproduzione, non modifica o distribuzione del file).
-- Al termine del timer viene riprodotto l'annuncio `Time!` dell'autore VoiceBosch. Alcuni browser possono impedire l'avvio automatico del secondo file audio; in quel caso il conto alla rovescia grafico continua a funzionare.
-- Non si tratta di suoni tratti da trasmissioni o meme commerciali: non vengono riprodotti estratti riconoscibili di show TV protetti.
-- CC BY-SA impone attribuzione e condizioni ShareAlike per le modifiche alle opere audio; questa attribuzione non attribuisce agli autori alcuna approvazione del Club42.
+- **Serve Internet.** La disponibilità e il comportamento dei player dipendono da Myinstants e dalle impostazioni del browser.
+- I pulsanti sono iframe di terze parti: l'app ospitante **non può regolare il volume interno** o gestire individualmente play/pause tramite DOM, a causa dell'isolamento cross-origin.
+- Per fermare tutti i suoni contemporaneamente si ricaricano i pulsanti. Non è garantito che premere un altro iframe metta in pausa il precedente.
+- L'audio esce dal PC della regia, non dalla scheda `#/screen`. Per la sala serve un collegamento dell'uscita audio del dispositivo al sistema di amplificazione.
+
+## Diritti e utilizzo pubblico
+
+L'esistenza del widget "Embed" indica che **Myinstants propone un metodo tecnico per incorporare i propri pulsanti**. Non dimostra però che tutti i suoni caricati dagli utenti siano liberi da diritti di terzi, né autorizza necessariamente l'esecuzione pubblica (per esempio di estratti di trasmissioni TV e brani musicali).
+
+Termini di utilizzo: https://www.myinstants.com/en/terms_of_use.html . In particolare i termini descrivono l'accesso come limitato all'uso personale non commerciale, e il contenuto caricato può includere opere di terzi. Prima di usare determinati audio in eventi pubblici dell'associazione, è opportuno verificarne la situazione dei diritti, se necessario con titolari/licenzianti e con le autorizzazioni pertinenti.
