@@ -1851,3 +1851,109 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
 @media(max-width:320px){
   .myinstants-grid{grid-template-columns:1fr}
 }
+
+
+/* Estensione soundboard Myinstants: stop globale sticky, stop su ogni iframe e archivio ampliato */
+.myinstants-stopbar{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:4px;
+  position:sticky;
+  top:55px;
+  z-index:9;
+  background:rgba(255,253,249,.97);
+  padding:10px 6px;
+  margin:8px -6px 12px;
+  border:1px solid rgba(250,107,99,.15);
+  border-radius:14px;
+  box-shadow:0 6px 20px rgba(23,52,61,.12);
+  backdrop-filter:blur(10px);
+}
+.myinstants-stopbar small{
+  color:var(--muted);
+  font-size:10px;
+  text-align:center;
+}
+.myinstants-stop-prominent{
+  background:#c83131;
+  color:#fff;
+  border:2px solid #ad2222;
+  border-radius:12px;
+  padding:13px 16px;
+  font-size:17px;
+  font-family:var(--subtitle-font);
+  letter-spacing:.03em;
+  box-shadow:0 7px 18px rgba(200,49,49,.22);
+  width:100%;
+  min-height:46px;
+}
+.myinstants-stop-prominent:hover{background:#ae2424}
+.myinstants-stop-prominent:focus-visible,.myinstants-stop-one:focus-visible{
+  outline:3px solid var(--yellow);
+  outline-offset:2px;
+}
+.myinstants-actions span{font-size:10px;color:var(--muted)}
+.myinstants-stop-one{
+  width:calc(100% - 10px);
+  background:var(--soft-coral);
+  border:1px solid rgba(250,107,99,.3);
+  border-radius:10px;
+  padding:7px 4px;
+  color:#953a35;
+  font-family:var(--subtitle-font);
+  font-weight:800;
+  font-size:12px;
+}
+.myinstants-stop-one:hover{background:rgba(250,107,99,.22)}
+.myinstants-blank{
+  display:grid;
+  place-items:center;
+  text-align:center;
+  width:110px;
+  max-width:100%;
+  min-height:200px;
+  color:var(--muted);
+  font-size:11px;
+}
+.myinstants-remove{
+  border:0;
+  background:transparent;
+  color:var(--muted);
+  font-size:10px;
+  text-decoration:underline;
+  padding:5px 2px;
+}
+.myinstants-load-more{
+  width:100%;
+  margin-top:15px;
+  padding:12px;
+  background:var(--blue);
+  color:#fff;
+  border:0;
+  border-radius:12px;
+  font-family:var(--subtitle-font);
+  font-weight:800;
+}
+.myinstants-add{
+  margin-top:24px;
+  padding:16px 12px;
+  background:var(--soft-blue);
+  border:1px solid var(--line);
+  border-radius:16px;
+}
+.myinstants-add h3{
+  font-size:16px;
+  color:var(--blue);
+  line-height:1.15;
+  margin:0 0 9px;
+}
+.myinstants-add p{
+  font-size:11px;
+  line-height:1.5;
+  color:var(--muted);
+}
+.myinstants-add form{display:grid;gap:7px}
+.myinstants-add form input{padding:10px;font-size:12px;min-width:0}
+.myinstants-add .primary{padding:11px 9px}
+.myinstants-message{font-size:11px;margin-top:10px;color:var(--blue);line-height:1.5}
