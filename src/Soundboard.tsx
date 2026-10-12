@@ -165,7 +165,7 @@ function readInstantSlug(text: string): string | null {
 
 export default function Soundboard() {
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState<Filter>('featured')
+  const [filter, setFilter] = useState<Filter>('all')
   const [limit, setLimit] = useState(PAGE_SIZE)
   const [favorites, setFavorites] = useState<string[]>(() => readStoredStringList(FAVORITES_STORAGE))
   const [custom, setCustom] = useState<Instant[]>(readCustom)
