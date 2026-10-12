@@ -48,6 +48,8 @@ export interface ScreenState {
   source_question_id: string | null
   payload: Record<string, unknown>
   updated_at: string
+  timer_started_at: string | null
+  timer_duration_seconds: number | null
 }
 
 export interface Category {

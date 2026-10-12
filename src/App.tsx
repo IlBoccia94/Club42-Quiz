@@ -225,12 +225,43 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
   const [questionId, setQuestionId] = useState('')
   const [customTitle, setCustomTitle] = useState('')
   const [customBody, setCustomBody] = useState('')
+  const [timerSeconds, setTimerSeconds] = useState('30')
+  const [timerBusy, setTimerBusy] = useState(false)
   const round = quiz.find(r => r.id === roundId) || quiz[0] || null
   const question = round?.questions.find(q => q.id === questionId) || null
 
   useEffect(() => { if (!roundId && quiz[0]) setRoundId(quiz[0].id) }, [quiz, roundId])
   async function run(name: string, args: Record<string, unknown>, ok: string) {
     try { await rpc(name, { p_session_token: token, ...args }); await state.reload(); notice(ok) } catch (e) { notice(msg(e)) }
+  }
+  async function controlTimer(seconds: number) {
+    if (!Number.isInteger(seconds) || seconds < 0 || seconds > 3600) {
+      notice('Il timer deve durare da 1 a 3600 secondi.')
+      return
+    }
+    setTimerBusy(true)
+    try {
+      await rpc('master_set_timer', { p_session_token: token, p_seconds: seconds })
+      await state.reload()
+      notice(seconds === 0 ? 'Timer fermato sullo schermo.' : `Timer di ${seconds} secondi avviato.`)
+    } catch (error) {
+      notice(msg(error))
+    } finally {
+      setTimerBusy(false)
+    }
+  }
+  function submitCustomTimer(event: FormEvent) {
+    event.preventDefault()
+    if (!timerSeconds.trim()) {
+      notice('Inserisci il numero di secondi del timer.')
+      return
+    }
+    const seconds = Number(timerSeconds)
+    if (!Number.isInteger(seconds) || seconds < 1 || seconds > 3600) {
+      notice('Inserisci una durata intera tra 1 e 3600 secondi.')
+      return
+    }
+    void controlTimer(seconds)
   }
   const publish = (mode: ScreenMode, title?: string, body?: string) => run('master_publish_screen', {
     p_mode: mode, p_title: title || null, p_body: body || null, p_options: [], p_footer: null,
@@ -288,6 +319,29 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
 
     <aside className="panel control-panel">
       <p className="eyebrow">REGIA</p><h2>Controlli live</h2>
+      <div className="control-block timer-control">
+        <span>Timer sullo schermo</span>
+        <p className="timer-help">Una barra in alto, indipendente da domande e risposte.</p>
+        <div className="timer-presets" aria-label="Durate rapide">
+          {[5, 10, 20, 30, 60].map(seconds =>
+            <button key={seconds} type="button" disabled={timerBusy}
+              onClick={() => { setTimerSeconds(String(seconds)); void controlTimer(seconds) }}>
+              {seconds} s
+            </button>
+          )}
+        </div>
+        <form className="timer-custom" onSubmit={submitCustomTimer}>
+          <label htmlFor="master-timer-seconds">Secondi personalizzati</label>
+          <div>
+            <input id="master-timer-seconds" type="number" min="1" max="3600" step="1"
+              inputMode="numeric" value={timerSeconds} onChange={e => setTimerSeconds(e.target.value)}
+              aria-label="Durata del timer in secondi"/>
+            <button type="submit" className="primary" disabled={timerBusy}>Avvia timer</button>
+          </div>
+        </form>
+        <button type="button" className="timer-cancel" disabled={timerBusy}
+          onClick={() => void controlTimer(0)}>■ Ferma / nascondi timer</button>
+      </div>
       <div className="control-block">
         <span>Schermo</span>
         <button className={state.screen?.blackout?'danger big':'secondary big'} onClick={()=>run('master_set_blackout',{p_blackout:!state.screen?.blackout},state.screen?.blackout?'Schermo riattivato.':'Schermo oscurato.')}>{state.screen?.blackout?'Riattiva schermo':'Oscura schermo'}</button>
@@ -680,7 +734,29 @@ function ScreenPage(){
   const fullscreen=()=>document.documentElement.requestFullscreen?.().catch(()=>undefined)
   return <main className="public-screen" onDoubleClick={fullscreen}><ScreenCanvas screen={state.screen} teams={state.teams}/><button className="fullscreen" onClick={fullscreen}>⛶</button></main>
 }
+function useScreenCountdown(screen: ScreenState | null) {
+  const [now, setNow] = useState(() => Date.now())
+  const started = screen?.timer_started_at
+  const duration = screen?.timer_duration_seconds
+  useEffect(() => {
+    setNow(Date.now())
+    if (!started || !duration || !Number.isFinite(Date.parse(started))) return
+    const id = window.setInterval(() => setNow(Date.now()), 100)
+    return () => window.clearInterval(id)
+  }, [started, duration])
+  const startMs = started ? Date.parse(started) : NaN
+  const total = (duration || 0) * 1000
+  const remainingMs = total > 0 && Number.isFinite(startMs)
+    ? Math.max(0, startMs + total - now)
+    : 0
+  return {
+    active: remainingMs > 0,
+    seconds: Math.ceil(remainingMs / 1000),
+    percentage: total > 0 ? Math.min(100, Math.max(0, remainingMs / total * 100)) : 0
+  }
+}
 function ScreenCanvas({screen,teams,preview=false}:{screen:ScreenState|null;teams:Team[];preview?:boolean}){
+  const timer = useScreenCountdown(screen)
   if(!screen)return <div className="screen-canvas">Connessione…</div>
   if(screen.blackout)return <div className="screen-canvas blackout"><div className="big42">42</div><b>CLUB42</b></div>
   const board=teams.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name,'it'))
@@ -689,16 +765,24 @@ function ScreenCanvas({screen,teams,preview=false}:{screen:ScreenState|null;team
   const options=trueFalse && rawOptions.length===0 ? ['VERO','FALSO'] : rawOptions
   const optionLetters=trueFalse ? ['V','F'] : LETTERS
   return <div
-    className={`screen-canvas ${preview?'preview':''} mode-${screen.mode.toLowerCase()}`}
+    className={`screen-canvas ${preview?'preview':''} ${timer.active?'has-timer':''} mode-${screen.mode.toLowerCase()}`}
     style={{ backgroundImage: `linear-gradient(rgba(247,244,235,.90), rgba(247,244,235,.90)), url("${SCREEN_BG_URL}")` }}
   >
+    {timer.active && <div className="screen-timer" role="timer" aria-label={`Tempo rimanente: ${timer.seconds} secondi`}>
+      <div className="screen-timer-content"><span>TEMPO RIMANENTE</span><strong>{timer.seconds} s</strong></div>
+      <div className="screen-timer-track"><div className="screen-timer-fill" style={{width: `${timer.percentage}%`}}/></div>
+    </div>}
     <div className="screen-top"><Logo compact/>{screen.round_name&&<b>{screen.round_name}</b>}</div>
     {screen.mode==='LOGO'&&<div className="screen-center logo-screen"><div className="big42">42</div><h1>{screen.title||'CLUB42'}</h1><p>{screen.body||'Quiz a squadre'}</p></div>}
     {screen.mode==='ROUND'&&<div className="screen-center"><small>PROSSIMO ROUND</small><h1>{screen.title}</h1><p>{screen.body}</p></div>}
     {screen.mode==='PAUSE'&&<div className="screen-center"><small>DON'T PANIC</small><h1>{screen.title||'PAUSA'}</h1><p>{screen.body}</p></div>}
     {screen.mode==='CUSTOM'&&<div className="screen-center"><h1>{screen.title}</h1><p>{screen.body}</p></div>}
-    {screen.mode==='QUESTION'&&<div className="question-screen"><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
-    {screen.mode==='ANSWER'&&<div className="screen-center answer"><small>RISPOSTA</small><h1>{screen.body}</h1>{typeof screen.payload?.question==='string'&&<p>{screen.payload.question}</p>}{screen.footer&&<div className="answer-note">{screen.footer}</div>}</div>}
+    {screen.mode==='QUESTION'&&<div className={`question-screen ${!screen.body && options.length === 0 && !screen.footer ? 'only-question' : ''}`}><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
+    {screen.mode==='ANSWER'&&<div className="screen-center answer">
+      {typeof screen.payload?.question==='string'&&<p className="answer-question">{screen.payload.question}</p>}
+      <div className="answer-result"><small>RISPOSTA CORRETTA</small><h1>{screen.body}</h1></div>
+      {screen.footer&&<div className="answer-note">{screen.footer}</div>}
+    </div>}
     {screen.mode==='LEADERBOARD'&&<div className="board-screen"><h1>{screen.title||'CLASSIFICA'}</h1><div>{board.map((t,i)=><article key={t.id} className={`place-${i+1}`}><span>{i+1}</span><b>{t.name}</b><strong>{t.score}<small> pt</small></strong></article>)}</div></div>}
     <div className="screen-foot">club42 · la cultura passa anche attraverso il divertimento</div>
   </div>

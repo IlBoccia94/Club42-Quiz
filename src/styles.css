@@ -1957,3 +1957,214 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
 .myinstants-add form input{padding:10px;font-size:12px;min-width:0}
 .myinstants-add .primary{padding:11px 9px}
 .myinstants-message{font-size:11px;margin-top:10px;color:var(--blue);line-height:1.5}
+
+
+/* Quiz screen: answer hierarchy and centered question content */
+.screen-canvas .question-screen{
+  inset:13vh 7vw 9vh;
+  justify-content:center;
+  gap:0;
+}
+.screen-canvas .question-screen>h1{
+  font-family:var(--subtitle-font);
+  font-size:clamp(35px,4.3vw,90px);
+  font-weight:800;
+  line-height:1.1;
+  max-width:84vw;
+  margin:0 auto 2.5vh;
+  text-wrap:balance;
+  overflow-wrap:anywhere;
+}
+.screen-canvas .question-screen.only-question>h1{
+  font-size:clamp(42px,5vw,104px);
+  line-height:1.15;
+  max-width:82vw;
+  margin:0 auto;
+}
+.screen-canvas .answer{
+  inset:12vh 7vw 9vh;
+  justify-content:center;
+  gap:2vh;
+}
+.screen-canvas .answer .answer-question{
+  font-family:var(--body-font);
+  color:var(--ink);
+  font-size:clamp(19px,2.15vw,42px);
+  font-weight:600;
+  line-height:1.37;
+  margin:0;
+  padding:.5vh 1vw;
+  max-width:81vw;
+  background:transparent;
+  text-wrap:balance;
+  overflow-wrap:anywhere;
+}
+.screen-canvas .answer .answer-result{
+  max-width:84vw;
+  min-width:min(48vw,600px);
+  padding:2.1vh 3.5vw;
+  background:rgba(255,253,249,.92);
+  border:2px solid rgba(255,198,11,.8);
+  border-radius:1.4vw;
+  box-shadow:0 16px 34px rgba(33,98,119,.12);
+}
+.screen-canvas .answer .answer-result small{
+  display:block;
+  font-family:var(--subtitle-font);
+  color:var(--coral);
+  font-size:clamp(14px,1.12vw,23px);
+  letter-spacing:.12em;
+}
+.screen-canvas .answer h1{
+  font-family:var(--body-font);
+  font-size:clamp(36px,4.9vw,101px);
+  font-weight:800;
+  line-height:1.14;
+  letter-spacing:-.02em;
+  color:var(--blue);
+  margin:.75vh auto 0;
+  max-width:78vw;
+  overflow-wrap:anywhere;
+}
+.screen-canvas .answer .answer-note{
+  font-family:var(--body-font);
+  font-size:clamp(16px,1.35vw,27px);
+  line-height:1.35;
+  max-width:77vw;
+  margin:0;
+  padding:1.3vh 2vw;
+  overflow-wrap:anywhere;
+}
+
+/* Overlay timer: occupies only the upper band, never the question/answer area */
+.screen-canvas .screen-timer{
+  position:absolute;
+  z-index:12;
+  inset:0 0 auto;
+  height:5.5vh;
+  min-height:40px;
+  background:#194b5d;
+  color:#fff;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  box-shadow:0 6px 18px rgba(23,52,61,.22);
+}
+.screen-canvas .screen-timer-content{
+  min-height:0;
+  flex:1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 4.5vw;
+  gap:2vw;
+}
+.screen-canvas .screen-timer-content span{
+  font-family:var(--subtitle-font);
+  font-weight:800;
+  font-size:clamp(14px,1.22vw,24px);
+  letter-spacing:.16em;
+}
+.screen-canvas .screen-timer-content strong{
+  font-family:var(--subtitle-font);
+  font-weight:800;
+  font-size:clamp(21px,2.35vw,45px);
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  color:#fff;
+}
+.screen-canvas .screen-timer-track{
+  flex:none;
+  width:100%;
+  height:.8vh;
+  min-height:5px;
+  background:rgba(255,255,255,.18);
+  overflow:hidden;
+}
+.screen-canvas .screen-timer-fill{
+  height:100%;
+  background:var(--yellow);
+  transition:width .1s linear;
+}
+.screen-canvas.has-timer .screen-top{transform:translateY(2.8vh)}
+
+/* Scaled overlay and readable text in Master preview */
+.preview-frame .screen-canvas .screen-timer{
+  height:23px;
+  min-height:0;
+}
+.preview-frame .screen-canvas .screen-timer-content{padding:0 10px}
+.preview-frame .screen-canvas .screen-timer-content span{font-size:7px}
+.preview-frame .screen-canvas .screen-timer-content strong{font-size:13px}
+.preview-frame .screen-canvas .screen-timer-track{height:3px;min-height:0}
+.preview-frame .screen-canvas.has-timer .screen-top{transform:translateY(12px)}
+.preview-frame .screen-canvas .screen-center{inset:16% 8% 8%}
+.preview-frame .screen-canvas .question-screen{inset:15% 8% 9%}
+.preview-frame .screen-canvas .question-screen>h1,
+.preview-frame .screen-canvas .question-screen.only-question>h1{
+  font-size:clamp(12px,1.35vw,22px);
+  line-height:1.12;
+  margin:0 auto 8px;
+  max-width:100%;
+}
+.preview-frame .screen-canvas .question-screen.only-question>h1{margin:0 auto}
+.preview-frame .screen-canvas .answer{gap:4px}
+.preview-frame .screen-canvas .answer .answer-question{
+  font-size:clamp(9px,.85vw,14px);
+  padding:0;
+  max-width:100%;
+}
+.preview-frame .screen-canvas .answer .answer-result{
+  min-width:0;
+  padding:7px 12px;
+  border-radius:6px;
+  max-width:100%;
+  border-width:1px;
+}
+.preview-frame .screen-canvas .answer .answer-result small{font-size:8px}
+.preview-frame .screen-canvas .answer h1{
+  font-size:clamp(12px,1.4vw,24px);
+  margin:3px auto 0;
+  max-width:100%;
+}
+.preview-frame .screen-canvas .answer .answer-note{
+  font-size:9px;
+  padding:5px 8px;
+  border-radius:5px;
+  max-width:100%;
+}
+
+/* Master overlay timer presets, custom entry and stop */
+.timer-control .timer-help{font-size:11px;color:var(--muted);line-height:1.5;margin:2px 0 12px}
+.timer-presets{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.timer-presets button{
+  font-family:var(--subtitle-font);
+  font-weight:800;
+  font-size:12px;
+  border:1px solid rgba(33,98,119,.22);
+  border-radius:9px;
+  background:var(--soft-yellow);
+  color:var(--blue);
+  min-height:36px;
+  padding:7px 2px;
+}
+.timer-presets button:hover{background:var(--yellow)}
+.timer-custom label{font-size:10px;margin:12px 0 6px}
+.timer-custom>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.timer-custom input{width:100%;min-width:0;border-radius:10px;padding:9px 10px}
+.timer-custom button{white-space:nowrap;border-radius:10px;padding:9px 11px;font-size:11px}
+.timer-cancel{
+  width:100%;
+  margin-top:8px;
+  border:1px solid rgba(250,107,99,.32);
+  border-radius:10px;
+  background:var(--soft-coral);
+  color:#983d39;
+  font-size:11px;
+  font-family:var(--subtitle-font);
+  font-weight:800;
+  padding:10px;
+}
+@media(max-width:760px){
+  .timer-presets button{min-height:43px}
+}

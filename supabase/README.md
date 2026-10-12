@@ -49,3 +49,12 @@ Sono pubblicate su `supabase_realtime` le tabelle necessarie alla serata:
 È stato verificato lato database che, nella stessa finestra buzzer, la prima squadra viene accettata e la seconda rifiutata. I Supabase Security Advisors non riportano vulnerabilità sullo schema corrente.
 
 Per le prossime modifiche allo schema, aggiungere una nuova migrazione versionata invece di modificare manualmente le tabelle.
+
+
+## Timer indipendente dalla schermata (13 ottobre 2026)
+
+Migrazione live `20261012230827_screen_timer_overlay_independent`:
+- `screen_state.timer_started_at` e `timer_duration_seconds`, mantenuti quando si cambia modalità.
+- RPC `public.master_set_timer(p_session_token, p_seconds)` con verifica sessione Master nel wrapper privato; 0 interrompe, valori da 1 a 3600 avviano un nuovo countdown.
+- Nessun polling per la sincronizzazione: si usa l'abbonamento Realtime già attivo sulla tabella `screen_state`.
+- Il display calcola il tempo rimanente partendo dalla data di avvio salvata sul database, così il timer non riparte al cambio domanda o dopo un refresh.
