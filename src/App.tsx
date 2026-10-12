@@ -139,6 +139,14 @@ function MasterPage() {
   const [toast, setToast] = useState('')
   const [tab, setTab] = useState<'live' | 'teams' | 'questions'>('live')
   const [quiz, setQuiz] = useState<QuizRound[]>([])
+  const [desktopLayout, setDesktopLayout] = useState(() => window.matchMedia('(min-width: 1200px)').matches)
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1200px)')
+    const onChange = (event: MediaQueryListEvent) => setDesktopLayout(event.matches)
+    media.addEventListener('change', onChange)
+    return () => media.removeEventListener('change', onChange)
+  }, [])
 
   const loadQuiz = useCallback(async (session = token) => {
     if (!session) return
@@ -177,14 +185,32 @@ function MasterPage() {
   return <div className="master-page">
     <header className="master-header">
       <button className="brand-btn" onClick={() => go('home')}><Logo compact/></button>
-      <nav>{(['live','teams','questions'] as const).map(x => <button key={x} className={tab===x?'active':''} onClick={() => setTab(x)}>{x==='live'?'Regia Live':x==='teams'?'Squadre':'Domande'}</button>)}</nav>
-      <button className="ghost" onClick={logout}>Esci</button>
+      <nav className="master-tabs" aria-label="Sezioni della regia">
+        {(['live','teams','questions'] as const).map(x => <button key={x} className={tab===x?'active':''} onClick={() => setTab(x)}>{x==='live'?'Regia Live':x==='teams'?'Squadre':'Domande'}</button>)}
+      </nav>
+      <div className="master-header-actions">
+        <a className="master-screen-shortcut" href="#/screen" target="_blank" rel="noopener noreferrer" aria-label="Apri lo schermo pubblico in una nuova scheda" title="Apri lo schermo pubblico in una nuova scheda">
+          <span className="shortcut-label">Apri schermo</span><span aria-hidden="true">↗</span>
+        </a>
+        <button className="ghost" onClick={logout}>Esci</button>
+      </div>
     </header>
     {toast && <button className="toast" onClick={() => setToast('')}>{toast} ×</button>}
     {state.error && <div className="toast error">{state.error}</div>}
-    {tab === 'live' && <LivePanel token={token} state={state} quiz={quiz} notice={setToast}/>}
-    {tab === 'teams' && <TeamsPanel token={token} state={state} notice={setToast}/>}
-    {tab === 'questions' && <QuestionsPanel token={token} state={state} quiz={quiz} reloadQuiz={loadQuiz} notice={setToast}/>}
+    <div className="master-dashboard">
+      {(desktopLayout || tab === 'live') && <section className="master-column" aria-label="Regia Live">
+        <div className="master-column-header"><h2>Regia Live</h2><span>Comandi e proiezione</span></div>
+        <LivePanel token={token} state={state} quiz={quiz} notice={setToast}/>
+      </section>}
+      {(desktopLayout || tab === 'teams') && <section className="master-column" aria-label="Squadre">
+        <div className="master-column-header"><h2>Squadre</h2><span>Punteggi e risposte</span></div>
+        <TeamsPanel token={token} state={state} notice={setToast}/>
+      </section>}
+      {(desktopLayout || tab === 'questions') && <section className="master-column" aria-label="Domande">
+        <div className="master-column-header"><h2>Domande</h2><span>Round e gestione quiz</span></div>
+        <QuestionsPanel token={token} state={state} quiz={quiz} reloadQuiz={loadQuiz} notice={setToast}/>
+      </section>}
+    </div>
   </div>
 }
 
