@@ -1,161 +1,128 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 
-/**
- * Soundboard del Club42: solo campioni reali CC BY-SA.
- * Licenze, autori e link alle schede originali in SOUND_SOURCES.md.
- * Gli audio vengono riprodotti soltanto nel browser del Master.
- */
-const oga = 'https://opengameart.org/sites/default/files/'
-const commons = 'https://commons.wikimedia.org/wiki/Special:Redirect/file/'
-const urls = {
-  ding: oga+'ding_01.ogg',
-  doubleDing: oga+'ding_double_01.ogg',
-  reveal: oga+'ding_03.ogg',
-  victory: oga+'VICTORY_0.ogg',
-  lose: oga+'LOSE_0.ogg',
-  champion: oga+'WIN_AGAINST_CHAMPION_0.ogg',
-  intro: oga+'09._round_1_0.wav',
-  final: oga+'13._final_round.wav',
-  winner: oga+'22._winner.wav',
-  failure: oga+'20._failure.wav',
-  gameOver: oga+'31._game_over.wav',
-  countdownVoice: oga+'26._countdown_-_5_4_3_2_1.wav',
-  timeUp: oga+'27._time.wav',
-  suspense: oga+'suspense.mp3',
-  piano: oga+'MS_Realization.wav',
-  waiting: oga+'Dream.mp3',
-  applause: commons+'Applause.ogg',
-} as const
+type Instant = { title: string; slug: string; featured: boolean }
 
-type Cue = {
-  id: string
-  label: string
-  icon: string
-  detail: string
-  group: 'Risposte' | 'Tempo' | 'Atmosfera' | 'Meme'
-  file?: string
-  loop?: boolean
-  seconds?: number
-  maxSeconds?: number
-}
-const cues: Cue[] = [
-  {id:'correct',label:'Risposta giusta',icon:'✅',detail:'Doppia campanella',group:'Risposte',file:urls.doubleDing},
-  {id:'wrong',label:'Risposta sbagliata',icon:'❌',detail:'Fanfara della sconfitta',group:'Risposte',file:urls.lose},
-  {id:'bell',label:'Campanella',icon:'🔔',detail:'Ding nitido',group:'Risposte',file:urls.ding},
-  {id:'reveal',label:'Rivelazione',icon:'✨',detail:'Effetto sorpresa',group:'Risposte',file:urls.reveal},
-  {id:'win',label:'Grande vittoria',icon:'🏆',detail:'Fanfara celebrativa',group:'Risposte',file:urls.victory},
-  {id:'ten',label:'Countdown 10 s',icon:'🔟',detail:'Suspense + ultimi 5 secondi',group:'Tempo',seconds:10},
-  {id:'thirty',label:'Countdown 30 s',icon:'⏱️',detail:'Suspense + ultimi 5 secondi',group:'Tempo',seconds:30},
-  {id:'lastFive',label:'5, 4, 3, 2, 1…',icon:'🗣️',detail:'Countdown con annunciatore',group:'Tempo',file:urls.countdownVoice},
-  {id:'timeUp',label:'Tempo scaduto!',icon:'🚨',detail:'Annunciatore: Time!',group:'Tempo',file:urls.timeUp},
-  {id:'waiting',label:'Musica d’attesa',icon:'🎶',detail:'Brano in loop',group:'Atmosfera',file:urls.waiting,loop:true},
-  {id:'suspense',label:'Tensione',icon:'🥁',detail:'Sottofondo inquietante in loop',group:'Atmosfera',file:urls.suspense,loop:true},
-  {id:'intro',label:'Inizio round',icon:'🎬',detail:'Voce da game show',group:'Atmosfera',file:urls.intro},
-  {id:'final',label:'Round finale',icon:'🔥',detail:'Annuncio della finale',group:'Atmosfera',file:urls.final},
-  {id:'applause',label:'Applausi',icon:'👏',detail:'Pubblico vero · 8 secondi',group:'Atmosfera',file:urls.applause,maxSeconds:8},
-  {id:'piano',label:'Colpo di scena',icon:'😱',detail:'Stacco di pianoforte drammatico',group:'Meme',file:urls.piano},
-  {id:'fail',label:'Fallimento',icon:'🤦',detail:'Annunciatore: Failure!',group:'Meme',file:urls.failure},
-  {id:'gameOver',label:'Game Over',icon:'💀',detail:'Voce cinematografica',group:'Meme',file:urls.gameOver},
-  {id:'champion',label:'Campioni!',icon:'👑',detail:'Fanfara trionfale',group:'Meme',file:urls.champion},
-  {id:'winner',label:'And the winner is…',icon:'🎙️',detail:'Voce da presentatore',group:'Meme',file:urls.winner},
+// I 36 risultati della ricerca Myinstants "quiz" (ottobre 2026).
+// Utilizziamo solo gli iframe ufficiali offerti sulle pagine dei suoni.
+// Nessun MP3 viene copiato, caricato o distribuito da Club42.
+const INSTANTS: Instant[] = [
+  { title: "Family Fortunes Ding", slug: "family-fortunes-ding-83918", featured: true },
+  { title: "Quiz Sting", slug: "quiz-sting-60084", featured: true },
+  { title: "Pub Quiz 2023", slug: "pub-quiz-2023-80830", featured: true },
+  { title: "Quizizz", slug: "quizizz-85140", featured: true },
+  { title: "Welcome To The Quiz", slug: "welcome-to-the-quiz-42196", featured: true },
+  { title: "bdh quiz", slug: "bdh-quiz-39147", featured: false },
+  { title: "Quizlet Correct", slug: "quizlet-correct-72993", featured: true },
+  { title: "The Price is Right Ding-Ding", slug: "the-price-is-right-ding-ding-67508", featured: true },
+  { title: "QUIZ .BENAR", slug: "quiz-benar-79879", featured: false },
+  { title: "QUIZ .SALAH", slug: "quiz-salah-45334", featured: false },
+  { title: "Homestuck Quiz Show Yes Or Right Answer", slug: "homestuck-quiz-show-yes-or-right-answer-19344", featured: true },
+  { title: "pop quiz hot shot", slug: "pop-quiz-hot-shot-46875", featured: false },
+  { title: "Banjo e Kazooie Acerto Quiz", slug: "banjo-e-kazooie-acerto-quiz-46709", featured: true },
+  { title: "Quiz - Football Ladder", slug: "quiz-football-ladder-20160", featured: false },
+  { title: "quizas quizas quizas", slug: "quizas-quizas-quizas-2019", featured: false },
+  { title: "Quizz Kappaa 4", slug: "quizz-kappaa-4", featured: false },
+  { title: "Quizz Kappa 1", slug: "quizz-kappa-1", featured: false },
+  { title: "Quizz Kappa 5", slug: "quizz-kappa-5", featured: false },
+  { title: "My brain in a multiple cation quiz", slug: "my-brain-in-a-multiple-cation-quiz-6614", featured: false },
+  { title: "billy quiz boy", slug: "billy-quiz-boy", featured: false },
+  { title: "Quizz Kappaa 2", slug: "quizz-kappaa-2", featured: false },
+  { title: "QUIZ WRONG", slug: "quiz-wrong-1004", featured: true },
+  { title: "Quizo pasar en un 60 entre 90", slug: "quizo-pasar-en-un-60-entre-90", featured: false },
+  { title: "Quizz Kapppa 3", slug: "quizz-kapppa-3", featured: false },
+  { title: "Quizzy_Quizzy Rindo", slug: "quizzy_quizzy-rindo", featured: false },
+  { title: "Quizzy Rindo", slug: "quizzy-rindo", featured: false },
+  { title: "The Chase (TV Show Quiz)", slug: "the-chase-tv-show-quiz-83440", featured: true },
+  { title: "Goku World Quiz Jingle", slug: "goku-world-quiz-jingle-37267", featured: true },
+  { title: "QUIZ DING", slug: "quiz-ding-86242", featured: true },
+  { title: "Banjo e Kazooie Erro Quiz", slug: "banjo-e-kazooie-erro-quiz-37848", featured: true },
+  { title: "pop quiz", slug: "pop-quiz-43146", featured: false },
+  { title: "quizbowl mfs be like", slug: "quizbowl-mfs-be-like-45407", featured: false },
+  { title: "GC PM TTYD Thwomp Quiz", slug: "gc-pm-ttyd-thwomp-quiz-94311", featured: false },
+  { title: "JAMÓN QUIZU", slug: "jamon-quizu-6311", featured: false },
+  { title: "The experiment I was working on", slug: "the-experiment-i-was-working-on-93482", featured: false },
+  { title: "Luke's Quiz", slug: "lukes-quiz-83773", featured: false },
 ]
-const groups: Cue['group'][] = ['Risposte','Tempo','Atmosfera','Meme']
+
+const ROOT = 'https://www.myinstants.com/instant/'
+const SEARCH_URL = 'https://www.myinstants.com/en/search/?name=quiz'
+const FAVORITES_STORAGE = 'club42_quiz_myinstants_favorites'
 
 export default function Soundboard() {
-  const [active,setActive] = useState<string|null>(null)
-  const [volume,setVolume] = useState(65)
-  const [remaining,setRemaining] = useState<number|null>(null)
-  const [error,setError] = useState('')
-  const mainAudio = useRef<HTMLAudioElement|null>(null)
-  const voiceAudio = useRef<HTMLAudioElement|null>(null)
-  const interval = useRef<number|null>(null)
-  const timeout = useRef<number|null>(null)
-  const counted = useRef(false)
+  const [search, setSearch] = useState('')
+  const [category, setCategory] = useState<'all' | 'featured' | 'favorites'>('all')
+  const [reloadKey, setReloadKey] = useState(0)
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(FAVORITES_STORAGE) || '[]')
+      return Array.isArray(saved) ? saved.filter((item): item is string => typeof item === 'string') : []
+    } catch { return [] }
+  })
 
-  const clear = useCallback(()=>{
-    for(const element of [mainAudio.current,voiceAudio.current]){
-      if(element){element.pause();element.onended=null;element.onerror=null;element.removeAttribute('src');element.load()}
-    }
-    mainAudio.current=null
-    voiceAudio.current=null
-    if(interval.current!==null)window.clearInterval(interval.current)
-    if(timeout.current!==null)window.clearTimeout(timeout.current)
-    interval.current=null
-    timeout.current=null
-    counted.current=false
-  },[])
-  const stop=useCallback(()=>{clear();setActive(null);setRemaining(null)},[clear])
-  useEffect(()=>()=>clear(),[clear])
-  useEffect(()=>{
-    if(mainAudio.current)mainAudio.current.volume=volume/100
-    if(voiceAudio.current)voiceAudio.current.volume=volume/100
-  },[volume])
+  const shown = useMemo(() => INSTANTS.filter(item => {
+    if (category === 'featured' && !item.featured) return false
+    if (category === 'favorites' && !favorites.includes(item.slug)) return false
+    return item.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
+  }), [search, category, favorites])
 
-  function createAudio(src:string,loop=false) {
-    const element=new Audio(src)
-    element.volume=volume/100
-    element.loop=loop
-    element.preload='auto'
-    return element
+  function toggleFavorite(slug: string) {
+    const next = favorites.includes(slug)
+      ? favorites.filter(item => item !== slug)
+      : [...favorites, slug]
+    setFavorites(next)
+    try { localStorage.setItem(FAVORITES_STORAGE, JSON.stringify(next)) } catch { /* storage unavailable */ }
   }
-  function start(cue:Cue){
-    if(active===cue.id){stop();return}
-    stop()
-    setError('')
-    setActive(cue.id)
-    if(cue.seconds){
-      const duration=cue.seconds
-      const base=createAudio(urls.suspense,true)
-      mainAudio.current=base
-      base.onerror=()=>{setError('Sottofondo non disponibile. Il timer prosegue comunque.')}
-      void base.play().catch(()=>setError('Sottofondo bloccato dal browser. Il timer prosegue.'))
-      const end=Date.now()+duration*1000
-      setRemaining(duration)
-      interval.current=window.setInterval(()=>{
-        const left=Math.max(0,Math.ceil((end-Date.now())/1000))
-        setRemaining(left)
-        if(left<=5&&left>0&&!counted.current){
-          counted.current=true
-          const countdown=createAudio(urls.countdownVoice)
-          voiceAudio.current=countdown
-          void countdown.play().catch(()=>undefined)
-        }
-        if(left===0){
-          stop()
-          const finale=createAudio(urls.timeUp)
-          mainAudio.current=finale
-          setActive('timeUp')
-          finale.onended=()=>{if(mainAudio.current===finale){mainAudio.current=null;setActive(null)}}
-          finale.onerror=()=>{if(mainAudio.current===finale){stop();setError('Il segnale finale non è disponibile.')}}
-          void finale.play().catch(()=>{stop();setError('Il segnale finale è stato bloccato dal browser.')})
-        }
-      },100)
-      return
-    }
-    if(!cue.file){stop();return}
-    const element=createAudio(cue.file,Boolean(cue.loop))
-    mainAudio.current=element
-    element.onended=()=>{if(mainAudio.current===element){mainAudio.current=null;setActive(null)}}
-    element.onerror=()=>{if(mainAudio.current===element){stop();setError('Suono non raggiungibile. Verifica la connessione a Internet.')}}
-    void element.play().catch(()=>{if(mainAudio.current===element){stop();setError('La riproduzione è stata bloccata oppure il file non è disponibile.')}})
-    if(cue.maxSeconds){
-      timeout.current=window.setTimeout(()=>stop(),cue.maxSeconds*1000)
-    }
-  }
-  return <main className="panel soundboard">
-    <div className="section-head"><div><p className="eyebrow">SUONI COPYLEFT</p><h2>Soundboard</h2></div><span className={active?'sound-status active':'sound-status'}>{active?'● IN RIPRODUZIONE':'PRONTA'}</span></div>
-    <p className="sound-help">Solo registrazioni e brani autentici, con licenze Creative Commons ShareAlike. Clicca un pulsante per partire; riclicca per interrompere.</p>
-    <div className="sound-volume"><label htmlFor="sound-volume">Volume</label><input id="sound-volume" type="range" min="0" max="100" value={volume} onChange={e=>setVolume(Number(e.target.value))}/><b>{volume}%</b></div>
-    {remaining!==null&&<div className="sound-timer" role="timer"><span>Tempo rimanente</span><strong>{remaining} s</strong></div>}
-    <button className="sound-stop" disabled={!active} onClick={stop}>■ Ferma suono</button>
-    {groups.map(group=><section className="sound-group" key={group}><h3>{group}</h3><div className="sound-grid">
-      {cues.filter(cue=>cue.group===group).map(cue=><button key={cue.id} className={active===cue.id?'sound-cue playing':'sound-cue'} aria-pressed={active===cue.id} title={cue.detail} onClick={()=>start(cue)}>
-        <span className="sound-emoji" aria-hidden="true">{cue.icon}</span>
-        <span className="sound-copy"><b>{cue.label}</b><small>{cue.detail}</small></span>
-        <span className="sound-play" aria-hidden="true">{active===cue.id?'■':'▶'}</span>
-      </button>)}
-    </div></section>)}
-    {error&&<div className="alert sound-error" role="alert">{error}</div>}
-    <p className="sound-credit">CC BY-SA 3.0 / 4.0 · <a href="https://github.com/IlBoccia94/Club42-Quiz/blob/main/SOUND_SOURCES.md" target="_blank" rel="noopener noreferrer">Crediti, licenze e sorgenti ↗</a></p>
+
+  return <main className="panel soundboard myinstants-board">
+    <div className="section-head">
+      <div><p className="eyebrow">PULSANTI ORIGINALI</p><h2>Myinstants</h2></div>
+      <span className="myinstants-count">{INSTANTS.length} suoni</span>
+    </div>
+    <p className="sound-help">Premi il pulsante rosso direttamente nel riquadro per riprodurre l’audio originale. I suoni escono dal computer della regia.</p>
+
+    <label className="myinstants-search-label" htmlFor="myinstants-search">Cerca un effetto</label>
+    <input id="myinstants-search" type="search" autoComplete="off" placeholder="Es. ding, quiz, wrong…" value={search} onChange={event => setSearch(event.target.value)} />
+
+    <div className="myinstants-filters" role="group" aria-label="Filtra suoni">
+      <button className={category === 'all' ? 'selected' : ''} onClick={() => setCategory('all')}>Tutti ({INSTANTS.length})</button>
+      <button className={category === 'featured' ? 'selected' : ''} onClick={() => setCategory('featured')}>In evidenza</button>
+      <button className={category === 'favorites' ? 'selected' : ''} onClick={() => setCategory('favorites')}>★ Preferiti ({favorites.length})</button>
+    </div>
+
+    <div className="myinstants-actions">
+      <button className="myinstants-stop" onClick={() => setReloadKey(current => current + 1)} title="Ferma i suoni ricaricando i riquadri incorporati">■ Stop tutti</button>
+      <a href={SEARCH_URL} target="_blank" rel="noopener noreferrer">Altri suoni su Myinstants ↗</a>
+    </div>
+
+    {shown.length === 0 ? <div className="empty">Nessun pulsante trovato. Prova un’altra ricerca o aggiungi un preferito con ☆.</div> :
+      <div className="myinstants-grid">
+        {shown.map(item => <article className="myinstants-tile" key={item.slug}>
+          <div className="myinstants-tile-tools">
+            <button
+              type="button"
+              className={favorites.includes(item.slug) ? 'myinstants-favorite selected' : 'myinstants-favorite'}
+              onClick={() => toggleFavorite(item.slug)}
+              title={favorites.includes(item.slug) ? 'Togli dai preferiti' : 'Aggiungi ai preferiti'}
+              aria-label={favorites.includes(item.slug) ? 'Togli ' + item.title + ' dai preferiti' : 'Aggiungi ' + item.title + ' ai preferiti'}
+              aria-pressed={favorites.includes(item.slug)}
+            >{favorites.includes(item.slug) ? '★' : '☆'}</button>
+            <a href={ROOT + item.slug + '/'} target="_blank" rel="noopener noreferrer" title={'Apri ' + item.title + ' su Myinstants'} aria-label={'Apri ' + item.title + ' su Myinstants'}>↗</a>
+          </div>
+          <iframe
+            key={reloadKey}
+            title={'Pulsante audio Myinstants: ' + item.title}
+            width="110"
+            height="200"
+            src={ROOT + item.slug + '/embed/'}
+            loading="lazy"
+            allow="autoplay"
+            scrolling="no"
+          />
+        </article>)}
+      </div>}
+
+    <p className="myinstants-disclaimer">
+      Pulsanti incorporati da Myinstants: serve Internet. Volume e riproduzione sono gestiti dal sito nel riquadro; “Stop tutti” ricarica gli iframe. La possibilità di incorporare non certifica i diritti di esecuzione pubblica dei singoli audio.
+    </p>
   </main>
 }
