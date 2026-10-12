@@ -1,154 +1,161 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-/** Campioni CC0: Kenney e qubodup. Fonti in SOUND_SOURCES.md. */
-const ROOT = 'https://raw.githubusercontent.com/blancmathis/Super_Bash_Folds/main/public/assets/audio/open/'
-type Cue = { id:string; name:string; emoji:string; info:string; group:string; file?:string; loop?:boolean; seconds?:number }
+/**
+ * Soundboard del Club42: solo campioni reali CC BY-SA.
+ * Licenze, autori e link alle schede originali in SOUND_SOURCES.md.
+ * Gli audio vengono riprodotti soltanto nel browser del Master.
+ */
+const oga = 'https://opengameart.org/sites/default/files/'
+const commons = 'https://commons.wikimedia.org/wiki/Special:Redirect/file/'
+const urls = {
+  ding: oga+'ding_01.ogg',
+  doubleDing: oga+'ding_double_01.ogg',
+  reveal: oga+'ding_03.ogg',
+  victory: oga+'VICTORY_0.ogg',
+  lose: oga+'LOSE_0.ogg',
+  champion: oga+'WIN_AGAINST_CHAMPION_0.ogg',
+  intro: oga+'09._round_1_0.wav',
+  final: oga+'13._final_round.wav',
+  winner: oga+'22._winner.wav',
+  failure: oga+'20._failure.wav',
+  gameOver: oga+'31._game_over.wav',
+  countdownVoice: oga+'26._countdown_-_5_4_3_2_1.wav',
+  timeUp: oga+'27._time.wav',
+  suspense: oga+'suspense.mp3',
+  piano: oga+'MS_Realization.wav',
+  waiting: oga+'Dream.mp3',
+  applause: commons+'Applause.ogg',
+} as const
+
+type Cue = {
+  id: string
+  label: string
+  icon: string
+  detail: string
+  group: 'Risposte' | 'Tempo' | 'Atmosfera' | 'Meme'
+  file?: string
+  loop?: boolean
+  seconds?: number
+  maxSeconds?: number
+}
 const cues: Cue[] = [
-  {id:'right',name:'Risposta esatta',emoji:'✅',info:'Jingle vittoria',group:'Risposte',file:'sfx/game-set.ogg'},
-  {id:'wrong',name:'Sbagliato!',emoji:'❌',info:'Buzzer',group:'Risposte'},
-  {id:'bell',name:'Campanella',emoji:'🔔',info:'Ding del quiz',group:'Risposte'},
-  {id:'reveal',name:'Rivelazione',emoji:'✨',info:'Scopri la risposta',group:'Risposte',file:'sfx/item-pickup.ogg'},
-  {id:'ten',name:'Countdown 10 s',emoji:'🔟',info:'Segnale finale',group:'Tempo',seconds:10},
-  {id:'thirty',name:'Countdown 30 s',emoji:'⏱️',info:'Segnale finale',group:'Tempo',seconds:30},
-  {id:'alarm',name:'Sveglia',emoji:'🚨',info:'Tempo scaduto',group:'Tempo'},
-  {id:'tick',name:'Tic tac',emoji:'🕰️',info:'Orologio',group:'Tempo'},
-  {id:'waiting',name:'Musica d’attesa',emoji:'🎶',info:'In loop',group:'Atmosfera',file:'music/menu-loop.ogg',loop:true},
-  {id:'intro',name:'Inizio round',emoji:'🎬',info:'Segnale di avvio',group:'Atmosfera',file:'sfx/ready.ogg'},
-  {id:'drum',name:'Suspense',emoji:'🥁',info:'Rullo di tamburi',group:'Atmosfera'},
-  {id:'applause',name:'Applausi',emoji:'👏',info:'Effetto stilizzato',group:'Atmosfera'},
-  {id:'trombone',name:'Triste trombone',emoji:'🎺',info:'Wah-wah!',group:'Meme'},
-  {id:'boing',name:'Boing!',emoji:'🤪',info:'Molla comica',group:'Meme'},
-  {id:'drama',name:'Colpo di scena',emoji:'😱',info:'Stacco drammatico',group:'Meme',file:'sfx/hit-heavy.ogg'},
-  {id:'fail',name:'Game over',emoji:'💀',info:'Hai perso!',group:'Meme',file:'sfx/ko.ogg'},
+  {id:'correct',label:'Risposta giusta',icon:'✅',detail:'Doppia campanella',group:'Risposte',file:urls.doubleDing},
+  {id:'wrong',label:'Risposta sbagliata',icon:'❌',detail:'Fanfara della sconfitta',group:'Risposte',file:urls.lose},
+  {id:'bell',label:'Campanella',icon:'🔔',detail:'Ding nitido',group:'Risposte',file:urls.ding},
+  {id:'reveal',label:'Rivelazione',icon:'✨',detail:'Effetto sorpresa',group:'Risposte',file:urls.reveal},
+  {id:'win',label:'Grande vittoria',icon:'🏆',detail:'Fanfara celebrativa',group:'Risposte',file:urls.victory},
+  {id:'ten',label:'Countdown 10 s',icon:'🔟',detail:'Suspense + ultimi 5 secondi',group:'Tempo',seconds:10},
+  {id:'thirty',label:'Countdown 30 s',icon:'⏱️',detail:'Suspense + ultimi 5 secondi',group:'Tempo',seconds:30},
+  {id:'lastFive',label:'5, 4, 3, 2, 1…',icon:'🗣️',detail:'Countdown con annunciatore',group:'Tempo',file:urls.countdownVoice},
+  {id:'timeUp',label:'Tempo scaduto!',icon:'🚨',detail:'Annunciatore: Time!',group:'Tempo',file:urls.timeUp},
+  {id:'waiting',label:'Musica d’attesa',icon:'🎶',detail:'Brano in loop',group:'Atmosfera',file:urls.waiting,loop:true},
+  {id:'suspense',label:'Tensione',icon:'🥁',detail:'Sottofondo inquietante in loop',group:'Atmosfera',file:urls.suspense,loop:true},
+  {id:'intro',label:'Inizio round',icon:'🎬',detail:'Voce da game show',group:'Atmosfera',file:urls.intro},
+  {id:'final',label:'Round finale',icon:'🔥',detail:'Annuncio della finale',group:'Atmosfera',file:urls.final},
+  {id:'applause',label:'Applausi',icon:'👏',detail:'Pubblico vero · 8 secondi',group:'Atmosfera',file:urls.applause,maxSeconds:8},
+  {id:'piano',label:'Colpo di scena',icon:'😱',detail:'Stacco di pianoforte drammatico',group:'Meme',file:urls.piano},
+  {id:'fail',label:'Fallimento',icon:'🤦',detail:'Annunciatore: Failure!',group:'Meme',file:urls.failure},
+  {id:'gameOver',label:'Game Over',icon:'💀',detail:'Voce cinematografica',group:'Meme',file:urls.gameOver},
+  {id:'champion',label:'Campioni!',icon:'👑',detail:'Fanfara trionfale',group:'Meme',file:urls.champion},
+  {id:'winner',label:'And the winner is…',icon:'🎙️',detail:'Voce da presentatore',group:'Meme',file:urls.winner},
 ]
-const groups = ['Risposte','Tempo','Atmosfera','Meme']
+const groups: Cue['group'][] = ['Risposte','Tempo','Atmosfera','Meme']
 
 export default function Soundboard() {
-  const [active,setActive]=useState<string|null>(null)
-  const [volume,setVolume]=useState(70)
-  const [remaining,setRemaining]=useState<number|null>(null)
-  const [error,setError]=useState('')
-  const audio=useRef<HTMLAudioElement|null>(null)
-  const ctx=useRef<AudioContext|null>(null)
-  const bus=useRef<GainNode|null>(null)
-  const ticker=useRef<number|null>(null)
-  const ending=useRef<number|null>(null)
+  const [active,setActive] = useState<string|null>(null)
+  const [volume,setVolume] = useState(65)
+  const [remaining,setRemaining] = useState<number|null>(null)
+  const [error,setError] = useState('')
+  const mainAudio = useRef<HTMLAudioElement|null>(null)
+  const voiceAudio = useRef<HTMLAudioElement|null>(null)
+  const interval = useRef<number|null>(null)
+  const timeout = useRef<number|null>(null)
+  const counted = useRef(false)
 
-  const clearAudio=useCallback(()=>{
-    if(audio.current){audio.current.pause();audio.current.removeAttribute('src');audio.current.load();audio.current=null}
-    if(bus.current){
-      bus.current.gain.setValueAtTime(0,ctx.current?.currentTime??0)
-      bus.current.disconnect()
-      bus.current=null
+  const clear = useCallback(()=>{
+    for(const element of [mainAudio.current,voiceAudio.current]){
+      if(element){element.pause();element.onended=null;element.onerror=null;element.removeAttribute('src');element.load()}
     }
-    if(ticker.current!==null)window.clearInterval(ticker.current)
-    if(ending.current!==null)window.clearTimeout(ending.current)
-    ticker.current=null
-    ending.current=null
+    mainAudio.current=null
+    voiceAudio.current=null
+    if(interval.current!==null)window.clearInterval(interval.current)
+    if(timeout.current!==null)window.clearTimeout(timeout.current)
+    interval.current=null
+    timeout.current=null
+    counted.current=false
   },[])
-  const stop=useCallback(()=>{clearAudio();setActive(null);setRemaining(null)},[clearAudio])
-  useEffect(()=>()=>{clearAudio();if(ctx.current)void ctx.current.close()},[clearAudio])
+  const stop=useCallback(()=>{clear();setActive(null);setRemaining(null)},[clear])
+  useEffect(()=>()=>clear(),[clear])
   useEffect(()=>{
-    if(audio.current)audio.current.volume=volume/100
-    if(bus.current&&ctx.current)bus.current.gain.setTargetAtTime(volume/100,ctx.current.currentTime,.02)
+    if(mainAudio.current)mainAudio.current.volume=volume/100
+    if(voiceAudio.current)voiceAudio.current.volume=volume/100
   },[volume])
 
-  function beep(c:AudioContext,b:GainNode,start:number,freq:number,seconds:number,wave:OscillatorType='sine',endFreq?:number,gain=.25){
-    const o=c.createOscillator(),g=c.createGain()
-    o.type=wave
-    o.frequency.setValueAtTime(freq,start)
-    if(endFreq)o.frequency.exponentialRampToValueAtTime(Math.max(endFreq,25),start+seconds)
-    g.gain.setValueAtTime(.0001,start)
-    g.gain.exponentialRampToValueAtTime(gain,start+Math.min(.02,seconds/5))
-    g.gain.exponentialRampToValueAtTime(.0001,start+seconds)
-    o.connect(g);g.connect(b);o.start(start);o.stop(start+seconds+.02)
+  function createAudio(src:string,loop=false) {
+    const element=new Audio(src)
+    element.volume=volume/100
+    element.loop=loop
+    element.preload='auto'
+    return element
   }
-  function hiss(c:AudioContext,b:GainNode,start:number,seconds:number,gain=.1){
-    const buffer=c.createBuffer(1,Math.ceil(c.sampleRate*seconds),c.sampleRate)
-    const arr=buffer.getChannelData(0)
-    for(let i=0;i<arr.length;i++)arr[i]=Math.random()*2-1
-    const s=c.createBufferSource(),g=c.createGain()
-    s.buffer=buffer
-    g.gain.setValueAtTime(.0001,start)
-    g.gain.exponentialRampToValueAtTime(gain,start+Math.min(.01,seconds/4))
-    g.gain.exponentialRampToValueAtTime(.0001,start+seconds)
-    s.connect(g);g.connect(b);s.start(start)
-  }
-  function generate(cue:Cue){
-    const c=ctx.current??new AudioContext()
-    ctx.current=c
-    void c.resume()
-    const b=c.createGain();b.gain.value=volume/100;b.connect(c.destination);bus.current=b
-    const t=c.currentTime+.035
-    let length=1
-    if(cue.seconds){
-      const secs=cue.seconds,endAt=Date.now()+secs*1000
-      setRemaining(secs)
-      for(let i=0;i<secs;i++){
-        const last=i===secs-1
-        beep(c,b,t+i,last?1000:710,last?.5:.075,'sine',undefined,last?.4:.23)
-        if(last)beep(c,b,t+i,1310,.5,'sine',undefined,.18)
-      }
-      ticker.current=window.setInterval(()=>setRemaining(Math.max(0,Math.ceil((endAt-Date.now())/1000))),100)
-      length=secs+.65
-    }else if(cue.id==='wrong'){
-      beep(c,b,t,200,.7,'sawtooth',135,.22);beep(c,b,t,104,.7,'square',85,.09);length=.8
-    }else if(cue.id==='bell'){
-      beep(c,b,t,880,1.3);beep(c,b,t,1320,1.1,'sine',undefined,.13);beep(c,b,t,1760,.7,'sine',undefined,.07);length=1.35
-    }else if(cue.id==='alarm'){
-      for(let i=0;i<6;i++)beep(c,b,t+i*.29,i%2?660:920,.24,'square',undefined,.14)
-      length=1.85
-    }else if(cue.id==='tick'){
-      for(let i=0;i<8;i++){hiss(c,b,t+i*.5,.024,.21);beep(c,b,t+i*.5,i%2?730:980,.028,'square',undefined,.12)}
-      length=4.1
-    }else if(cue.id==='drum'){
-      for(let i=0;i<25;i++)hiss(c,b,t+i*.105,.079,.08+i*.005)
-      beep(c,b,t+2.62,82,.75,'sawtooth',55,.24);length=3.6
-    }else if(cue.id==='applause'){
-      for(let i=0;i<82;i++)hiss(c,b,t+i*.038,.05,.065+Math.random()*.12)
-      length=3.3
-    }else if(cue.id==='trombone'){
-      ;[392,370,349,294].forEach((n,i)=>{
-        beep(c,b,t+i*.31,n,i===3?.87:.29,'sawtooth',n*.88,.18)
-        beep(c,b,t+i*.31,n/2,i===3?.87:.29,'triangle',n*.44,.14)
-      });length=2
-    }else if(cue.id==='boing'){
-      beep(c,b,t,730,.62,'sine',105,.36);beep(c,b,t+.18,190,.4,'triangle',360,.13);length=.8
-    }
-    ending.current=window.setTimeout(()=>stop(),length*1000)
-  }
-  function play(cue:Cue){
+  function start(cue:Cue){
     if(active===cue.id){stop();return}
     stop()
     setError('')
     setActive(cue.id)
-    if(!cue.file){
-      try{generate(cue)}catch{stop();setError('Il browser non supporta questa riproduzione audio.')}
+    if(cue.seconds){
+      const duration=cue.seconds
+      const base=createAudio(urls.suspense,true)
+      mainAudio.current=base
+      base.onerror=()=>{setError('Sottofondo non disponibile. Il timer prosegue comunque.')}
+      void base.play().catch(()=>setError('Sottofondo bloccato dal browser. Il timer prosegue.'))
+      const end=Date.now()+duration*1000
+      setRemaining(duration)
+      interval.current=window.setInterval(()=>{
+        const left=Math.max(0,Math.ceil((end-Date.now())/1000))
+        setRemaining(left)
+        if(left<=5&&left>0&&!counted.current){
+          counted.current=true
+          const countdown=createAudio(urls.countdownVoice)
+          voiceAudio.current=countdown
+          void countdown.play().catch(()=>undefined)
+        }
+        if(left===0){
+          stop()
+          const finale=createAudio(urls.timeUp)
+          mainAudio.current=finale
+          setActive('timeUp')
+          finale.onended=()=>{if(mainAudio.current===finale){mainAudio.current=null;setActive(null)}}
+          finale.onerror=()=>{if(mainAudio.current===finale){stop();setError('Il segnale finale non è disponibile.')}}
+          void finale.play().catch(()=>{stop();setError('Il segnale finale è stato bloccato dal browser.')})
+        }
+      },100)
       return
     }
-    const element=new Audio(ROOT+cue.file)
-    audio.current=element
-    element.volume=volume/100
-    element.loop=Boolean(cue.loop)
-    element.onended=()=>{if(audio.current===element){audio.current=null;setActive(null)}}
-    element.onerror=()=>{if(audio.current===element){stop();setError('File audio non raggiungibile: verifica la connessione.')}}
-    void element.play().catch(()=>{if(audio.current===element){stop();setError('Impossibile riprodurre il suono sul browser.')}})
+    if(!cue.file){stop();return}
+    const element=createAudio(cue.file,Boolean(cue.loop))
+    mainAudio.current=element
+    element.onended=()=>{if(mainAudio.current===element){mainAudio.current=null;setActive(null)}}
+    element.onerror=()=>{if(mainAudio.current===element){stop();setError('Suono non raggiungibile. Verifica la connessione a Internet.')}}
+    void element.play().catch(()=>{if(mainAudio.current===element){stop();setError('La riproduzione è stata bloccata oppure il file non è disponibile.')}})
+    if(cue.maxSeconds){
+      timeout.current=window.setTimeout(()=>stop(),cue.maxSeconds*1000)
+    }
   }
-
   return <main className="panel soundboard">
-    <div className="section-head"><div><p className="eyebrow">EFFETTI LIVE</p><h2>Soundboard</h2></div><span className={active?'sound-status active':'sound-status'}>{active?'● IN RIPRODUZIONE':'PRONTA'}</span></div>
-    <p className="sound-help">Un clic riproduce il suono, un secondo clic lo ferma. L’audio esce dal PC della regia.</p>
+    <div className="section-head"><div><p className="eyebrow">SUONI COPYLEFT</p><h2>Soundboard</h2></div><span className={active?'sound-status active':'sound-status'}>{active?'● IN RIPRODUZIONE':'PRONTA'}</span></div>
+    <p className="sound-help">Solo registrazioni e brani autentici, con licenze Creative Commons ShareAlike. Clicca un pulsante per partire; riclicca per interrompere.</p>
     <div className="sound-volume"><label htmlFor="sound-volume">Volume</label><input id="sound-volume" type="range" min="0" max="100" value={volume} onChange={e=>setVolume(Number(e.target.value))}/><b>{volume}%</b></div>
     {remaining!==null&&<div className="sound-timer" role="timer"><span>Tempo rimanente</span><strong>{remaining} s</strong></div>}
     <button className="sound-stop" disabled={!active} onClick={stop}>■ Ferma suono</button>
     {groups.map(group=><section className="sound-group" key={group}><h3>{group}</h3><div className="sound-grid">
-      {cues.filter(cue=>cue.group===group).map(cue=><button key={cue.id} className={active===cue.id?'sound-cue playing':'sound-cue'} aria-pressed={active===cue.id} title={cue.info} onClick={()=>play(cue)}>
-        <span className="sound-emoji" aria-hidden="true">{cue.emoji}</span>
-        <span className="sound-copy"><b>{cue.name}</b><small>{cue.info}</small></span>
+      {cues.filter(cue=>cue.group===group).map(cue=><button key={cue.id} className={active===cue.id?'sound-cue playing':'sound-cue'} aria-pressed={active===cue.id} title={cue.detail} onClick={()=>start(cue)}>
+        <span className="sound-emoji" aria-hidden="true">{cue.icon}</span>
+        <span className="sound-copy"><b>{cue.label}</b><small>{cue.detail}</small></span>
         <span className="sound-play" aria-hidden="true">{active===cue.id?'■':'▶'}</span>
       </button>)}
     </div></section>)}
     {error&&<div className="alert sound-error" role="alert">{error}</div>}
-    <p className="sound-credit">Campioni CC0: Kenney e qubodup · altri effetti generati localmente.</p>
+    <p className="sound-credit">CC BY-SA 3.0 / 4.0 · <a href="https://github.com/IlBoccia94/Club42-Quiz/blob/main/SOUND_SOURCES.md" target="_blank" rel="noopener noreferrer">Crediti, licenze e sorgenti ↗</a></p>
   </main>
 }
