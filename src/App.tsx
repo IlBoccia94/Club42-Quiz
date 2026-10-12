@@ -60,10 +60,11 @@ function Logo({ compact = false }: { compact?: boolean }) {
   </div>
 }
 
-function usePublicState() {
+function usePublicState(synchronizeClock = false) {
   const [event, setEvent] = useState<QuizEvent | null>(null)
   const [teams, setTeams] = useState<Team[]>([])
   const [screen, setScreen] = useState<ScreenState | null>(null)
+  const [clockOffsetMs, setClockOffsetMs] = useState<number | null>(null)
   const [buzzer, setBuzzer] = useState<BuzzerWindow | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
   const [templates, setTemplates] = useState<RoundTemplate[]>([])
@@ -90,6 +91,36 @@ function usePublicState() {
   }, [])
 
   useEffect(() => {
+    if (!synchronizeClock) return
+
+    let active = true
+    async function syncClock() {
+      // Misura il tempo server rispetto al punto medio della richiesta.
+      // Evita gli scarti dell'orologio locale (ad es. 15 secondi).
+      const sentAt = Date.now()
+      const { data, error } = await supabase.rpc('quiz_server_time')
+      const receivedAt = Date.now()
+      const serverAt = typeof data === 'string' ? Date.parse(data) : NaN
+      if (!error && Number.isFinite(serverAt) && active) {
+        const roundTrip = receivedAt - sentAt
+        if (roundTrip < 15000) {
+          const offset = serverAt - (sentAt + receivedAt) / 2
+          setClockOffsetMs(previous =>
+            previous === null || Math.abs(previous - offset) > 500 ? offset : previous
+          )
+        }
+      }
+    }
+
+    void syncClock()
+    const resync = window.setInterval(() => void syncClock(), 30000)
+    return () => {
+      active = false
+      window.clearInterval(resync)
+    }
+  }, [synchronizeClock])
+
+  useEffect(() => {
     void reload()
     const channel = supabase.channel('club42-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'events', filter: `id=eq.${EVENT_ID}` }, () => void reload())
@@ -100,7 +131,7 @@ function usePublicState() {
     return () => { void supabase.removeChannel(channel) }
   }, [reload])
 
-  return { event, teams, screen, buzzer, categories, templates, loading, error, reload }
+  return { event, teams, screen, clockOffsetMs, buzzer, categories, templates, loading, error, reload }
 }
 
 export default function App() {
@@ -134,7 +165,7 @@ function HomePage() {
 }
 
 function MasterPage() {
-  const state = usePublicState()
+  const state = usePublicState(true)
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(MASTER_STORAGE))
   const [password, setPassword] = useState('')
   const [toast, setToast] = useState('')
@@ -227,6 +258,7 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
   const [customBody, setCustomBody] = useState('')
   const [timerSeconds, setTimerSeconds] = useState('30')
   const [timerBusy, setTimerBusy] = useState(false)
+  const timerStatus = useScreenCountdown(state.screen, state.clockOffsetMs)
   const round = quiz.find(r => r.id === roundId) || quiz[0] || null
   const question = round?.questions.find(q => q.id === questionId) || null
 
@@ -303,7 +335,7 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
 
     <section className="panel preview-panel">
       <div className="section-head"><div><p className="eyebrow">ANTEPRIMA</p><h2>Schermo pubblico</h2></div><span className="live-pill">● LIVE</span></div>
-      <div className="preview-frame"><ScreenCanvas screen={state.screen} teams={state.teams} preview/></div>
+      <div className="preview-frame"><ScreenCanvas screen={state.screen} teams={state.teams} clockOffsetMs={state.clockOffsetMs} preview/></div>
       <div className="quick-screen">
         <button onClick={()=>publish('LOGO','CLUB42','Quiz a squadre')}>Logo</button>
         <button onClick={()=>publish('ROUND',round?.name || 'Prossimo round')}>Round</button>
@@ -321,11 +353,16 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
       <p className="eyebrow">REGIA</p><h2>Controlli live</h2>
       <div className="control-block timer-control">
         <span>Timer sullo schermo</span>
-        <p className="timer-help">Una barra in alto, indipendente da domande e risposte.</p>
+        <p className="timer-help">Seleziona una durata, poi premi Avvia timer. La barra resta indipendente dalla schermata.</p>
+        <p className={timerStatus.active ? 'timer-status active' : 'timer-status'} role="status">
+          {timerStatus.active ? `Timer in corso · ${timerStatus.seconds} s rimanenti` : 'Timer non attivo'}
+        </p>
         <div className="timer-presets" aria-label="Durate rapide">
           {[5, 10, 20, 30, 60].map(seconds =>
             <button key={seconds} type="button" disabled={timerBusy}
-              onClick={() => { setTimerSeconds(String(seconds)); void controlTimer(seconds) }}>
+              className={timerSeconds === String(seconds) ? 'selected' : ''}
+              aria-pressed={timerSeconds === String(seconds)}
+              onClick={() => setTimerSeconds(String(seconds))}>
               {seconds} s
             </button>
           )}
@@ -339,7 +376,7 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
             <button type="submit" className="primary" disabled={timerBusy}>Avvia timer</button>
           </div>
         </form>
-        <button type="button" className="timer-cancel" disabled={timerBusy}
+        <button type="button" className="timer-cancel" disabled={timerBusy || !timerStatus.active}
           onClick={() => void controlTimer(0)}>■ Ferma / nascondi timer</button>
       </div>
       <div className="control-block">
@@ -730,11 +767,11 @@ function PlayerPage() {
 }
 
 function ScreenPage(){
-  const state=usePublicState()
+  const state=usePublicState(true)
   const fullscreen=()=>document.documentElement.requestFullscreen?.().catch(()=>undefined)
-  return <main className="public-screen" onDoubleClick={fullscreen}><ScreenCanvas screen={state.screen} teams={state.teams}/><button className="fullscreen" onClick={fullscreen}>⛶</button></main>
+  return <main className="public-screen" onDoubleClick={fullscreen}><ScreenCanvas screen={state.screen} teams={state.teams} clockOffsetMs={state.clockOffsetMs}/><button className="fullscreen" onClick={fullscreen}>⛶</button></main>
 }
-function useScreenCountdown(screen: ScreenState | null) {
+function useScreenCountdown(screen: ScreenState | null, clockOffsetMs: number | null) {
   const [now, setNow] = useState(() => Date.now())
   const started = screen?.timer_started_at
   const duration = screen?.timer_duration_seconds
@@ -746,8 +783,8 @@ function useScreenCountdown(screen: ScreenState | null) {
   }, [started, duration])
   const startMs = started ? Date.parse(started) : NaN
   const total = (duration || 0) * 1000
-  const remainingMs = total > 0 && Number.isFinite(startMs)
-    ? Math.max(0, startMs + total - now)
+  const remainingMs = total > 0 && clockOffsetMs !== null && Number.isFinite(startMs)
+    ? Math.max(0, startMs + total - (now + clockOffsetMs))
     : 0
   return {
     active: remainingMs > 0,
@@ -755,8 +792,8 @@ function useScreenCountdown(screen: ScreenState | null) {
     percentage: total > 0 ? Math.min(100, Math.max(0, remainingMs / total * 100)) : 0
   }
 }
-function ScreenCanvas({screen,teams,preview=false}:{screen:ScreenState|null;teams:Team[];preview?:boolean}){
-  const timer = useScreenCountdown(screen)
+function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenState|null;teams:Team[];preview?:boolean;clockOffsetMs:number|null}){
+  const timer = useScreenCountdown(screen,clockOffsetMs)
   if(!screen)return <div className="screen-canvas">Connessione…</div>
   if(screen.blackout)return <div className="screen-canvas blackout"><div className="big42">42</div><b>CLUB42</b></div>
   const board=teams.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name,'it'))

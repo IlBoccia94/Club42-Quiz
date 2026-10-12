@@ -58,3 +58,12 @@ Migrazione live `20261012230827_screen_timer_overlay_independent`:
 - RPC `public.master_set_timer(p_session_token, p_seconds)` con verifica sessione Master nel wrapper privato; 0 interrompe, valori da 1 a 3600 avviano un nuovo countdown.
 - Nessun polling per la sincronizzazione: si usa l'abbonamento Realtime già attivo sulla tabella `screen_state`.
 - Il display calcola il tempo rimanente partendo dalla data di avvio salvata sul database, così il timer non riparte al cambio domanda o dopo un refresh.
+
+## Sincronizzazione del clock del countdown (13 ottobre 2026)
+
+Migrazione live `20261012231710_quiz_server_clock_sync`:
+- `public.quiz_server_time()` restituisce il tempo del database in UTC; la funzione è di sola lettura, con privilegi di invocazione anon/auth.
+- La regia e lo schermo consultano l'orario server all'avvio e ogni 30 s, calcolando lo scarto usando il punto medio di invio/ricezione per compensare la latenza.
+- `useScreenCountdown` sottrae l'ora sincronizzata (`Date.now() + clockOffsetMs`) alla scadenza persistente: la durata non dipende dalla regolazione manuale dell'orologio del PC.
+- Se il clock non è ancora disponibile, l'overlay aspetta la sincronizzazione anziché mostrare un tempo residuo potenzialmente errato.
+- I preset 5/10/20/30/60 secondi selezionano il valore; solo `Avvia timer` chiama `master_set_timer`. Il tasto Ferma è disabilitato fuori dal countdown.
