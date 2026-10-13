@@ -164,13 +164,34 @@ function HomePage() {
   </main>
 }
 
+type MasterModuleId = 'live' | 'teams' | 'sounds' | 'questions'
+const MASTER_MODULES: { id: MasterModuleId; label: string; subtitle: string }[] = [
+  { id: 'live', label: 'Regia Live', subtitle: 'Comandi e proiezione' },
+  { id: 'teams', label: 'Squadre', subtitle: 'Punteggi e risposte' },
+  { id: 'sounds', label: 'Suoni', subtitle: 'Soundboard Myinstants' },
+  { id: 'questions', label: 'Domande', subtitle: 'Round e gestione domande' },
+]
+const MASTER_LAYOUT_STORAGE = 'club42_master_moduli_v1'
+const MASTER_DEFAULT_MODULES: MasterModuleId[] = ['live', 'teams', 'sounds']
+
+function readMasterModules(): MasterModuleId[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(MASTER_LAYOUT_STORAGE) || 'null')
+    if (Array.isArray(saved)) {
+      const selected = MASTER_MODULES.map(option => option.id).filter(id => saved.includes(id))
+      if (selected.length) return selected
+    }
+  } catch { /* browser con storage disabilitato */ }
+  return [...MASTER_DEFAULT_MODULES]
+}
+
 function MasterPage() {
   const state = usePublicState(true)
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(MASTER_STORAGE))
   const [password, setPassword] = useState('')
   const [toast, setToast] = useState('')
-  const [tab, setTab] = useState<'live' | 'teams' | 'sounds'>('live')
-  const [questionsPage, setQuestionsPage] = useState(false)
+  const [tab, setTab] = useState<MasterModuleId>('live')
+  const [visibleModules, setVisibleModules] = useState<MasterModuleId[]>(readMasterModules)
   const [quiz, setQuiz] = useState<QuizRound[]>([])
   const [desktopLayout, setDesktopLayout] = useState(() => window.matchMedia('(min-width: 1200px)').matches)
 
@@ -180,6 +201,28 @@ function MasterPage() {
     media.addEventListener('change', onChange)
     return () => media.removeEventListener('change', onChange)
   }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem(MASTER_LAYOUT_STORAGE, JSON.stringify(visibleModules)) }
+    catch { /* non bloccare la regia se lo storage non funziona */ }
+  }, [visibleModules])
+
+  function toggleModule(module: MasterModuleId) {
+    if (visibleModules.includes(module) && visibleModules.length === 1) {
+      setToast('Mantieni almeno un modulo visibile. Usa «Solo» per ingrandirlo.')
+      return
+    }
+    setVisibleModules(current => {
+      const next = current.includes(module) ? current.filter(id => id !== module) : [...current, module]
+      return MASTER_MODULES.map(option => option.id).filter(id => next.includes(id))
+    })
+  }
+
+  function showOnlyModule(module: MasterModuleId) {
+    setVisibleModules([module])
+  }
+
+  const selectedModules = desktopLayout ? visibleModules : [tab]
 
   const loadQuiz = useCallback(async (session = token) => {
     if (!session) return
@@ -218,11 +261,23 @@ function MasterPage() {
   return <div className="master-page">
     <header className="master-header">
       <button className="brand-btn" onClick={() => go('home')}><Logo compact/></button>
-      <nav className="master-tabs" aria-label="Sezioni regia">
-        {(['live','teams','sounds'] as const).map(x => <button key={x} className={!questionsPage&&tab===x?'active':''} onClick={() => {setQuestionsPage(false);setTab(x)}}>{x==='live'?'Regia Live':x==='teams'?'Squadre':'Suoni'}</button>)}
+      <nav className="master-tabs master-module-picker" aria-label={desktopLayout ? 'Moduli visibili della regia' : 'Sezioni della regia'}>
+        {MASTER_MODULES.map(module => {
+          const active = desktopLayout ? visibleModules.includes(module.id) : tab === module.id
+          return <button
+            key={module.id}
+            type="button"
+            className={active ? 'active' : ''}
+            aria-pressed={active}
+            title={desktopLayout ? (active ? 'Nascondi ' + module.label : 'Mostra ' + module.label) : 'Apri ' + module.label}
+            onClick={() => desktopLayout ? toggleModule(module.id) : setTab(module.id)}
+          >
+            {desktopLayout && <span className="module-picker-symbol" aria-hidden="true">{active ? '✓' : '+'}</span>}
+            {module.label}
+          </button>
+        })}
       </nav>
       <div className="master-header-actions">
-        <button className={questionsPage?'master-questions-link selected':'master-questions-link'} onClick={()=>setQuestionsPage(current=>!current)}>{questionsPage?'← Regia':'Domande ›'}</button>
         <a className="master-screen-shortcut" href="#/screen" target="_blank" rel="noopener noreferrer" aria-label="Apri lo schermo pubblico in una nuova scheda" title="Apri lo schermo pubblico in una nuova scheda">
           <span className="shortcut-label">Apri schermo</span><span aria-hidden="true">↗</span>
         </a>
@@ -231,23 +286,24 @@ function MasterPage() {
     </header>
     {toast && <button className="toast" onClick={() => setToast('')}>{toast} ×</button>}
     {state.error && <div className="toast error">{state.error}</div>}
-    {questionsPage ? <div className="master-questions-page">
-      <div className="master-questions-title"><div><p className="eyebrow">GESTIONE QUIZ</p><h1>Round e domande</h1></div><button className="secondary" onClick={()=>setQuestionsPage(false)}>← Torna alla regia</button></div>
-      <QuestionsPanel token={token} state={state} quiz={quiz} reloadQuiz={loadQuiz} notice={setToast}/>
-    </div> : <div className="master-dashboard">
-      {(desktopLayout || tab === 'live') && <section className="master-column" aria-label="Regia Live">
-        <div className="master-column-header"><h2>Regia Live</h2><span>Comandi e proiezione</span></div>
-        <LivePanel token={token} state={state} quiz={quiz} notice={setToast}/>
-      </section>}
-      {(desktopLayout || tab === 'teams') && <section className="master-column" aria-label="Squadre">
-        <div className="master-column-header"><h2>Squadre</h2><span>Punteggi e risposte</span></div>
-        <TeamsPanel token={token} state={state} notice={setToast}/>
-      </section>}
-      {(desktopLayout || tab === 'sounds') && <section className="master-column" aria-label="Effetti sonori">
-        <div className="master-column-header"><h2>Suoni</h2><span>Effetti e timer</span></div>
-        <Soundboard/>
-      </section>}
-    </div>}
+    <div className={`master-dashboard modules-${selectedModules.length}`} aria-label="Moduli regia">
+      {selectedModules.map(module => {
+        const option = MASTER_MODULES.find(item => item.id === module)!
+        return <section className={`master-column module-${module}`} aria-label={option.label} key={module}>
+          <div className="master-column-header">
+            <div className="master-column-heading"><h2>{option.label}</h2><span>{option.subtitle}</span></div>
+            {desktopLayout && <div className="master-module-actions">
+              {visibleModules.length > 1 && <button type="button" onClick={() => showOnlyModule(module)} title={'Mostra solo ' + option.label} aria-label={'Mostra solo ' + option.label}>Solo</button>}
+              <button type="button" onClick={() => toggleModule(module)} title={'Nascondi ' + option.label} aria-label={'Nascondi ' + option.label} disabled={visibleModules.length === 1}>×</button>
+            </div>}
+          </div>
+          {module === 'live' && <LivePanel token={token} state={state} quiz={quiz} notice={setToast}/>}
+          {module === 'teams' && <TeamsPanel token={token} state={state} notice={setToast}/>}
+          {module === 'sounds' && <Soundboard/>}
+          {module === 'questions' && <QuestionsPanel token={token} state={state} quiz={quiz} reloadQuiz={loadQuiz} notice={setToast}/>}
+        </section>
+      })}
+    </div>
   </div>
 }
 
