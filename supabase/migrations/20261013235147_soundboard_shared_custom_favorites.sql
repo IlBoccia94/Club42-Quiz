@@ -1,4 +1,4 @@
--- Migration already applied to live project Club42-Quiz as 20261013234600_soundboard_shared_custom_favorites.
+-- Migration already applied to live project Club42-Quiz as 20261013235147_soundboard_shared_custom_favorites.
 -- Persistence for custom Myinstants sounds and favorites. Only token-verified
 -- Master RPCs may read or modify this private, RLS-enabled table.
 
