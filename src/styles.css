@@ -2321,3 +2321,33 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
   .master-dashboard .master-column .master-content{padding:10px}
   .master-dashboard .master-column .questions-layout{grid-template-columns:1fr}
 }
+
+/* Stato salvataggio della soundboard su Supabase */
+.myinstants-sync-status{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  border:1px solid rgba(33,98,119,.15);
+  background:rgba(33,98,119,.06);
+  border-radius:11px;
+  color:var(--blue);
+  padding:8px 10px;
+  font-size:11px;
+  line-height:1.35;
+  font-weight:600;
+}
+.myinstants-sync-status.status-offline{
+  background:rgba(255,198,11,.18);
+  border-color:rgba(255,198,11,.5);
+  color:#69500e;
+}
+.myinstants-sync-status button{
+  font-size:11px;
+  font-weight:800;
+  background:var(--white);
+  border:1px solid var(--line);
+  color:var(--blue);
+  border-radius:8px;
+  padding:5px 8px;
+}

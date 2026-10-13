@@ -299,7 +299,7 @@ function MasterPage() {
           </div>
           {module === 'live' && <LivePanel token={token} state={state} quiz={quiz} notice={setToast}/>}
           {module === 'teams' && <TeamsPanel token={token} state={state} notice={setToast}/>}
-          {module === 'sounds' && <Soundboard/>}
+          {module === 'sounds' && <Soundboard token={token}/>}
           {module === 'questions' && <QuestionsPanel token={token} state={state} quiz={quiz} reloadQuiz={loadQuiz} notice={setToast}/>}
         </section>
       })}

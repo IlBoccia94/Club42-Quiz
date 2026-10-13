@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSoundboardLibrary } from './useSoundboardLibrary'
 
 type Group = 'Quiz' | 'Timer' | 'Buzzer' | 'Corrette' | 'Sbagliate' | 'Applausi' | 'Suspense' | 'Aggiunti'
 type Instant = { title: string; slug: string; group: Group; featured: boolean }
@@ -125,31 +126,7 @@ const SOUND_CATALOG: Instant[] = [
 const GROUPS: Group[] = ['Quiz', 'Timer', 'Buzzer', 'Corrette', 'Sbagliate', 'Applausi', 'Suspense', 'Aggiunti']
 const ROOT = 'https://www.myinstants.com/instant/'
 const SEARCH_URL = 'https://www.myinstants.com/en/search/?name=quiz'
-const FAVORITES_STORAGE = 'club42_quiz_myinstants_favorites'
-const CUSTOM_STORAGE = 'club42_myinstants_custom'
 const PAGE_SIZE = 18
-
-function readStoredStringList(key: string): string[] {
-  try {
-    const saved: unknown = JSON.parse(localStorage.getItem(key) || '[]')
-    return Array.isArray(saved) ? saved.filter((x): x is string => typeof x === 'string') : []
-  } catch { return [] }
-}
-
-function readCustom(): Instant[] {
-  try {
-    const saved: unknown = JSON.parse(localStorage.getItem(CUSTOM_STORAGE) || '[]')
-    if (!Array.isArray(saved)) return []
-    return saved
-      .filter((x): x is { title: string; slug: string } => (
-        typeof x === 'object' && x !== null &&
-        typeof x.title === 'string' && typeof x.slug === 'string' &&
-        /^[a-z0-9][a-z0-9-]{0,149}$/.test(x.slug)
-      ))
-      .slice(0, 500)
-      .map(x => ({ ...x, group: 'Aggiunti' as const, featured: false }))
-  } catch { return [] }
-}
 
 // Accetta URL di pagina, URL di embed o un iframe originale copiato da Myinstants.
 // La whitelist impedisce di inserire iframe arbitrari da altri domini.
@@ -158,17 +135,20 @@ function readInstantSlug(text: string): string | null {
   try {
     const url = new URL(input)
     if (url.protocol !== 'https:' || !['myinstants.com', 'www.myinstants.com'].includes(url.hostname)) return null
-    const match = url.pathname.match(/^\/(?:(?:en|it|es|fr|de|pt|nl|ja|ko|hi)\/)?instant\/([a-z0-9][a-z0-9-]{0,149})(?:\/embed)?\/?$/i)
+    const match = url.pathname.match(/^\/(?:(?:en|it|es|fr|de|pt|nl|ja|ko|hi)\/)?instant\/([a-z0-9][a-z0-9_-]{0,149})(?:\/embed)?\/?$/i)
     return match ? match[1].toLowerCase() : null
   } catch { return null }
 }
 
-export default function Soundboard() {
+export default function Soundboard({ token }: { token: string }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [limit, setLimit] = useState(PAGE_SIZE)
-  const [favorites, setFavorites] = useState<string[]>(() => readStoredStringList(FAVORITES_STORAGE))
-  const [custom, setCustom] = useState<Instant[]>(readCustom)
+  const { custom: savedCustom, favorites, syncStatus, addCustom: persistCustom,
+    removeCustom: deleteCustom, setFavorite, retrySync } = useSoundboardLibrary(token)
+  const custom = useMemo<Instant[]>(() =>
+    savedCustom.map(item => ({ ...item, group: 'Aggiunti', featured: false })),
+    [savedCustom])
   const [newLink, setNewLink] = useState('')
   const [newTitle, setNewTitle] = useState('')
   const [message, setMessage] = useState('')
@@ -255,9 +235,7 @@ export default function Soundboard() {
   }
 
   function toggleFavorite(slug: string) {
-    const next = favorites.includes(slug) ? favorites.filter(x => x !== slug) : [...favorites, slug]
-    setFavorites(next)
-    try { localStorage.setItem(FAVORITES_STORAGE, JSON.stringify(next)) } catch { /* storage disabled */ }
+    setFavorite(slug, !favorites.includes(slug))
   }
 
   function addCustom() {
@@ -275,10 +253,12 @@ export default function Soundboard() {
       return
     }
     const title = newTitle.trim().slice(0, 90) || slug.replace(/-\d+$/, '').replace(/-/g, ' ')
-    const next: Instant[] = [...custom, { title, slug, group: 'Aggiunti', featured: false }]
-    setCustom(next)
-    try { localStorage.setItem(CUSTOM_STORAGE, JSON.stringify(next)) } catch { /* storage disabled */ }
-    setMessage('Pulsante aggiunto! Lo trovi nella sezione Aggiunti.')
+    if (custom.length >= 500) {
+      setMessage('Limite di 500 suoni personalizzati raggiunto.')
+      return
+    }
+    persistCustom({ title, slug })
+    setMessage('Pulsante aggiunto. Sincronizzazione con Supabase in corso.')
     setNewLink('')
     setNewTitle('')
     setSearch('')
@@ -287,9 +267,7 @@ export default function Soundboard() {
 
   function removeCustom(slug: string) {
     stopOne(slug)
-    const next = custom.filter(item => item.slug !== slug)
-    setCustom(next)
-    try { localStorage.setItem(CUSTOM_STORAGE, JSON.stringify(next)) } catch { /* storage disabled */ }
+    deleteCustom(slug)
   }
 
   return <main className="panel soundboard myinstants-board">
@@ -298,6 +276,13 @@ export default function Soundboard() {
       <span className="myinstants-count">{sounds.length} suoni</span>
     </div>
     <p className="sound-help">Premi i pulsanti rossi originali di Myinstants. Per interrompere subito musica e suoni lunghi, usa il comando qui sotto.</p>
+    <div className={`myinstants-sync-status status-${syncStatus}`} role="status">
+      <span>{syncStatus === 'synced' ? '☁ Pulsanti e preferiti salvati su Supabase'
+        : syncStatus === 'connecting' ? '↻ Sincronizzazione soundboard…'
+        : syncStatus === 'pending' ? '↻ Modifiche locali in attesa di sincronizzazione'
+        : '⚠ Modifiche salvate sul dispositivo; sincronizzazione non disponibile'}</span>
+      {syncStatus === 'offline' && <button type="button" onClick={retrySync}>Riprova</button>}
+    </div>
 
     <div className="myinstants-stopbar">
       <button type="button" className="myinstants-stop myinstants-stop-prominent" onClick={stopAll} aria-label="STOP AUDIO: interrompi tutti i suoni Myinstants">
@@ -354,7 +339,7 @@ export default function Soundboard() {
 
     <div className="myinstants-add">
       <h3>Aggiungi qualsiasi altro suono Myinstants</h3>
-      <p>Incolla il link del pulsante oppure il suo codice iframe. Lo ritroverai qui anche alla prossima serata, su questo browser.</p>
+      <p>Incolla il link del pulsante oppure il suo codice iframe. Pulsanti e preferiti vengono salvati su Supabase e condivisi tra le regie. In caso di assenza di rete resta una copia locale.</p>
       <form onSubmit={e => { e.preventDefault(); addCustom() }}>
         <input value={newLink} onChange={e => setNewLink(e.target.value)}
           placeholder="https://www.myinstants.com/en/instant/..." aria-label="Link Myinstants o codice iframe"/>

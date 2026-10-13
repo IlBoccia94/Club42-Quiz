@@ -67,3 +67,12 @@ Migrazione live `20261012231710_quiz_server_clock_sync`:
 - `useScreenCountdown` sottrae l'ora sincronizzata (`Date.now() + clockOffsetMs`) alla scadenza persistente: la durata non dipende dalla regolazione manuale dell'orologio del PC.
 - Se il clock non è ancora disponibile, l'overlay aspetta la sincronizzazione anziché mostrare un tempo residuo potenzialmente errato.
 - I preset 5/10/20/30/60 secondi selezionano il valore; solo `Avvia timer` chiama `master_set_timer`. Il tasto Ferma è disabilitato fuori dal countdown.
+
+
+## Soundboard condivisa (ottobre 2026)
+
+Migrazione `soundboard_shared_custom_favorites`: tabella `private.soundboard_items` con `slug`, `title`, `is_custom`, `is_favorite`; RLS abilitato e nessun accesso diretto da `anon`/`authenticated`. I 114 suoni del catalogo fisso restano nel codice frontend.
+
+RPC pubbliche `master_soundboard_get`, `master_soundboard_change`, `master_soundboard_import` inoltrano a funzioni `private` che verificano **sempre** il token Master con `private.is_master_session`. Il database è condiviso tra dispositivi Master; i client aggiornano la vista all'apertura, al ritorno in primo piano e ogni 20 secondi.
+
+La versione precedente salvava i suoni su `localStorage`. Alla prima visita della nuova versione, la copia precedente viene accodata per l'importazione una sola volta. La coda persistente `club42_myinstants_pending_v1` conserva le operazioni fatte offline e le applica, nell'ordine, al ritorno della connessione. Il messaggio di stato indica se i dati sono sincronizzati oppure solo in copia locale. Una connessione effettiva è necessaria affinché un nuovo dispositivo veda le modifiche.
