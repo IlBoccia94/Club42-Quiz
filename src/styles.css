@@ -2193,3 +2193,131 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
   opacity:.38;
   box-shadow:none;
 }
+
+
+/* Regia modulare: 1 modulo a schermo pieno, 2/3 colonne o 4 quadranti.
+   I selettori del menu sono indipendenti dal contenuto proiettato. */
+@media(min-width:1200px){
+  .master-header{gap:12px}
+  .master-header .master-module-picker{
+    display:flex!important;
+    flex:0 1 auto;
+    margin:0 auto;
+    align-items:center;
+    white-space:nowrap;
+    background:rgba(33,98,119,.07);
+    border:1px solid rgba(33,98,119,.09);
+    border-radius:14px;
+    padding:4px;
+    gap:3px;
+  }
+  .master-module-picker button{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    min-height:35px;
+    border-radius:10px;
+    font-size:12px;
+    padding:8px 12px;
+  }
+  .master-module-picker button:not(.active){opacity:.7}
+  .module-picker-symbol{font-size:14px;font-weight:900;line-height:1}
+  .master-dashboard{
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr);
+  }
+  .master-dashboard.modules-1{grid-template-columns:minmax(0,1fr)}
+  .master-dashboard.modules-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .master-dashboard.modules-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .master-dashboard.modules-4{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    grid-template-rows:repeat(2,minmax(0,1fr));
+  }
+  .master-dashboard.modules-4 .master-column{padding-bottom:6px}
+  .master-column-header{
+    align-items:center;
+    flex-wrap:nowrap;
+    gap:8px;
+  }
+  .master-column-heading{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    align-items:flex-start;
+    min-width:0;
+  }
+  .master-column-heading h2{font-size:19px}
+  .master-column-heading span{
+    font-size:10px;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .master-module-actions{display:flex;align-items:center;gap:5px;flex:none}
+  .master-module-actions button{
+    border:1px solid rgba(33,98,119,.2);
+    background:rgba(255,255,255,.75);
+    border-radius:8px;
+    font-family:var(--subtitle-font);
+    color:var(--blue);
+    padding:6px 9px;
+    font-size:11px;
+    font-weight:800;
+    min-height:29px;
+  }
+  .master-module-actions button:hover:not(:disabled){background:var(--soft-yellow)}
+  .master-module-actions button:last-child{font-size:18px;padding:2px 9px;line-height:1.2}
+  .master-module-actions button:disabled{opacity:.32}
+
+  /* Domande è un modulo, non una pagina separata. */
+  .master-dashboard .module-questions .questions-layout{align-items:start}
+  .master-dashboard .module-questions .round-sidebar{max-height:none}
+  .master-dashboard .module-questions .question-cards>button{min-width:0}
+
+  /* Un solo modulo riceve spazio adeguato ai suoi controlli e ai campi dati. */
+  .master-dashboard.modules-1 .module-live .live-layout{
+    grid-template-columns:minmax(235px,.85fr) minmax(360px,1.35fr) minmax(245px,.8fr);
+    align-items:start;
+  }
+  .master-dashboard.modules-1 .module-questions .questions-layout{
+    grid-template-columns:minmax(230px,320px) minmax(0,1fr);
+    align-items:start;
+  }
+  .master-dashboard.modules-1 .module-live .control-panel{display:block}
+  .master-dashboard.modules-1 .module-live .quick-screen{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .master-dashboard.modules-1 .module-live .custom-box{grid-template-columns:1fr 1fr auto}
+  .master-dashboard.modules-1 .module-live .button-row{flex-direction:row}
+  .master-dashboard.modules-1 .module-live .button-row button{width:auto}
+  .master-dashboard.modules-1 .module-teams .team-row{
+    grid-template-columns:38px minmax(150px,1fr) 96px 92px minmax(240px,2fr) 72px 115px 36px;
+  }
+  .master-dashboard.modules-1 .module-teams .team-row > *{
+    grid-column:auto;
+    grid-row:auto;
+  }
+  .master-dashboard.modules-1 .module-teams .score-quick{grid-template-columns:repeat(8,minmax(0,1fr))}
+
+  /* Due o più moduli: pannelli interni impilati per non schiacciare gli input. */
+  .master-dashboard.modules-2 .module-questions .questions-layout,
+  .master-dashboard.modules-3 .module-questions .questions-layout,
+  .master-dashboard.modules-4 .module-questions .questions-layout{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:1199px){
+  .master-dashboard{display:block}
+  .master-column{min-width:0}
+  .master-module-picker button{font-size:11px}
+}
+@media(min-width:761px) and (max-width:1199px){
+  .master-header{padding:0 12px;gap:8px}
+  .master-header nav{gap:3px}
+  .master-header nav button{padding:8px 9px;font-size:11px}
+  .master-content.questions-layout{grid-template-columns:260px 1fr}
+}
+@media(max-width:760px){
+  .master-header .master-tabs{width:100%;gap:2px;margin:6px 0 0}
+  .master-header .master-tabs button{flex:1;min-width:0;padding:8px 2px;font-size:10px}
+  .master-header .module-questions{min-width:0}
+  .master-dashboard .master-column .master-content{padding:10px}
+  .master-dashboard .master-column .questions-layout{grid-template-columns:1fr}
+}
