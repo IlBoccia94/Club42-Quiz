@@ -12,6 +12,7 @@ const SCREEN_BG_URL = `${import.meta.env.BASE_URL}images/IMG-20260914-WA0075.jpg
 type Route = 'home' | 'master' | 'player' | 'screen'
 type PublicState = ReturnType<typeof usePublicState>
 type LiveInteractionResponse = { team_id: string; team_name: string; choice: string | null; answered_at: string | null }
+type ChoiceRecapTeam = { team_id: string; team_name: string; choice: string | null }
 type LiveInteraction = {
   window_id: string | null
   mode: 'BUZZER' | 'CHOICE' | null
@@ -857,6 +858,24 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
   const trueFalse=String(screen.payload?.question_type || '') === 'TRUE_FALSE'
   const options=trueFalse && rawOptions.length===0 ? ['VERO','FALSO'] : rawOptions
   const optionLetters=trueFalse ? ['V','F'] : LETTERS
+  const recapTeams: ChoiceRecapTeam[] = Array.isArray(screen.payload?.responses)
+    ? screen.payload.responses.flatMap((item: unknown) => {
+        if (!item || typeof item !== 'object') return []
+        const entry = item as Record<string, unknown>
+        if (typeof entry.team_id !== 'string' || typeof entry.team_name !== 'string') return []
+        return [{ team_id: entry.team_id, team_name: entry.team_name, choice: typeof entry.choice === 'string' ? entry.choice : null }]
+      })
+    : []
+  const recapRevealed = screen.payload?.revealed === true
+  const correctChoice = recapRevealed && typeof screen.payload?.correct_choice === 'string' ? screen.payload.correct_choice : null
+  const answerText = recapRevealed && typeof screen.payload?.answer_text === 'string' ? screen.payload.answer_text : null
+  const recapAnswered = recapTeams.filter(team=>team.choice !== null).length
+  const recapDensity = recapTeams.length > 26 ? 'many' : recapTeams.length > 12 ? 'medium' : 'few'
+  const choiceLabel = (choice: string | null) => {
+    if (!choice) return 'Non ha risposto'
+    const index = optionLetters.indexOf(choice)
+    return index < 0 ? choice : String(options[index] ?? choice)
+  }
   return <div
     className={`screen-canvas ${preview?'preview':''} ${timer.active?'has-timer':''} mode-${screen.mode.toLowerCase()}`}
     style={{ backgroundImage: `linear-gradient(rgba(247,244,235,.90), rgba(247,244,235,.90)), url("${SCREEN_BG_URL}")` }}
@@ -871,6 +890,46 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
     {screen.mode==='PAUSE'&&<div className="screen-center"><small>DON'T PANIC</small><h1>{screen.title||'PAUSA'}</h1><p>{screen.body}</p></div>}
     {screen.mode==='CUSTOM'&&<div className="screen-center"><h1>{screen.title}</h1><p>{screen.body}</p></div>}
     {screen.mode==='QUESTION'&&<div className={`question-screen ${!screen.body && options.length === 0 && !screen.footer ? 'only-question' : ''}`}><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
+
+    {screen.mode==='CHOICE_RECAP'&&<div className={`recap-screen density-${recapDensity} ${recapRevealed?'revealed':''}`}>
+      <div className="recap-intro">
+        <div className="recap-meta"><b>{recapRevealed?'✦ RISULTATI DELLE SQUADRE':'RISPOSTE CHIUSE'}</b><span>{recapAnswered}/{recapTeams.length} squadre hanno risposto</span></div>
+        <h1>{screen.title}</h1>
+      </div>
+      <div className="recap-panels">
+        <section className="recap-options" aria-label="Possibili risposte">
+          <h2>LE POSSIBILI RISPOSTE</h2>
+          {options.map((option,index)=>{
+            const letter=optionLetters[index] || String(index+1)
+            const winning=recapRevealed&&letter===correctChoice
+            return <div className={`recap-option ${winning?'is-correct':''}`} key={letter}>
+              <span className="recap-option-letter">{letter}</span><strong>{option}</strong>{winning&&<b className="recap-check">✓</b>}
+            </div>
+          })}
+          {recapRevealed&&<div className="recap-answer">
+            <small>RISPOSTA CORRETTA</small><strong>{answerText || 'Non impostata'}</strong>
+          </div>}
+        </section>
+        <section className="recap-responses" aria-label="Risposte delle squadre">
+          <h2>LE SCELTE DELLE SQUADRE</h2>
+          {recapTeams.length===0?<p>Nessuna squadra attiva.</p>:
+          <div className="recap-teams">
+            {recapTeams.map((team,index)=>{
+              const winning=recapRevealed && !!correctChoice && team.choice===correctChoice
+              return <article className={`recap-team ${winning?'is-winner':''} ${!team.choice?'no-choice':''}`}
+                style={{animationDelay: `${Math.min(index,22)*35}ms`}} key={team.team_id}>
+                <strong className="recap-team-name" title={team.team_name}>{team.team_name}</strong>
+                <span className="recap-team-answer" title={choiceLabel(team.choice)}>
+                  {team.choice&&<b>{team.choice}</b>}<span>{choiceLabel(team.choice)}</span>
+                </span>
+                {winning&&<b className="recap-team-star" aria-label="Risposta esatta">✓</b>}
+              </article>
+            })}
+          </div>}
+        </section>
+      </div>
+      {recapRevealed&&screen.footer&&<div className="recap-footer"><strong>LO SAPEVI?</strong><span>{screen.footer}</span></div>}
+    </div>}
     {screen.mode==='ANSWER'&&<div className="screen-center answer">
       {typeof screen.payload?.question==='string'&&<p className="answer-question">{screen.payload.question}</p>}
       <div className="answer-result"><small>RISPOSTA CORRETTA</small><h1>{screen.body}</h1></div>

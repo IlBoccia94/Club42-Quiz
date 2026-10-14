@@ -1,4 +1,4 @@
-export type ScreenMode = 'LOGO' | 'ROUND' | 'QUESTION' | 'ANSWER' | 'LEADERBOARD' | 'CUSTOM' | 'PAUSE'
+export type ScreenMode = 'LOGO' | 'ROUND' | 'QUESTION' | 'ANSWER' | 'CHOICE_RECAP' | 'LEADERBOARD' | 'CUSTOM' | 'PAUSE'
 
 export interface QuizEvent {
   id: string
