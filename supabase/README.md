@@ -76,3 +76,13 @@ Migrazione `soundboard_shared_custom_favorites`: tabella `private.soundboard_ite
 RPC pubbliche `master_soundboard_get`, `master_soundboard_change`, `master_soundboard_import` inoltrano a funzioni `private` che verificano **sempre** il token Master con `private.is_master_session`. Il database è condiviso tra dispositivi Master; i client aggiornano la vista all'apertura, al ritorno in primo piano e ogni 20 secondi.
 
 La versione precedente salvava i suoni su `localStorage`. Alla prima visita della nuova versione, la copia precedente viene accodata per l'importazione una sola volta. La coda persistente `club42_myinstants_pending_v1` conserva le operazioni fatte offline e le applica, nell'ordine, al ritorno della connessione. Il messaggio di stato indica se i dati sono sincronizzati oppure solo in copia locale. Una connessione effettiva è necessaria affinché un nuovo dispositivo veda le modifiche.
+
+
+## Recap alla chiusura delle risposte multiple (ottobre 2026)
+
+Migrazione `20261014001258_choice_recap_screen_and_reveal`:
+- `private.master_close_buzzer` pubblica `CHOICE_RECAP` per finestre CHOICE relative a domande MULTIPLE_CHOICE o TRUE_FALSE. Le squadre attive, inclusa l'assenza di risposta, vengono serializzate nello `screen_state.payload.responses`, sincronizzato con la proiezione via Realtime.
+- La risposta corretta **non è inclusa nel payload prima della rivelazione**.
+- `private.master_publish_question` mantiene il recap se il regista rivela proprio quella domanda: aggiunge la risposta, la spiegazione e la lettera corretta, ottenuta dalla funzione privata `private.choice_recap_correct_key`. Se si rivela una domanda senza recap resta il precedente screen ANSWER.
+- Le lettere A/B/C/D, il testo letterale dell'opzione e Vero/Falso vengono interpretati; soluzioni ambigue mostrano il testo senza assegnare a caso il risultato alle squadre.
+- Lo schermo evidenzia la risposta giusta e le squadre vincitrici con una transizione verde/oro. Timer e altre modalità sono invariati.
