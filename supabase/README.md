@@ -86,3 +86,11 @@ Migrazione `20261014001258_choice_recap_screen_and_reveal`:
 - `private.master_publish_question` mantiene il recap se il regista rivela proprio quella domanda: aggiunge la risposta, la spiegazione e la lettera corretta, ottenuta dalla funzione privata `private.choice_recap_correct_key`. Se si rivela una domanda senza recap resta il precedente screen ANSWER.
 - Le lettere A/B/C/D, il testo letterale dell'opzione e Vero/Falso vengono interpretati; soluzioni ambigue mostrano il testo senza assegnare a caso il risultato alle squadre.
 - Lo schermo evidenzia la risposta giusta e le squadre vincitrici con una transizione verde/oro. Timer e altre modalità sono invariati.
+
+
+## Indizi progressivi Clue Ladder (14 ottobre 2026)
+
+- In regia, ogni pulsante indizio pubblica una schermata `QUESTION` con `p_payload.question_type='CLUE_LADDER'`, `question_id`, `clue` e la lista cumulativa `clues` fino all'indizio selezionato. Per esempio, il pulsante 3 mostra gli indizi 1, 2 e 3, senza dipendere da click precedenti.
+- La visualizzazione pubblica mostra gli indizi progressivi in card leggibili con numerazione, senza punteggi e senza caratteri in corsivo. Soltanto la card nuova riceve una breve animazione; le precedenti mantengono le proprie chiavi React e restano ferme.
+- I punti continuano a essere mostrati soltanto nella regia Master per l'organizzatore. `Mostra risposta` continua a usare `master_publish_question` e mantiene invariata la schermata ANSWER.
+- Non serve alcuna migrazione di database: le informazioni viaggiano nel payload già supportato da `master_publish_screen` e dallo stato proiettato via Realtime.

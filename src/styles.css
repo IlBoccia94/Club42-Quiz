@@ -875,7 +875,8 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
   color:var(--blue);
 }
 .clue-on-screen{
-  font-family:var(--italic-font);
+  font-family:var(--body-font);
+  font-style:normal;
   font-size:3.2vw!important;
   color:var(--ink)!important;
   background:rgba(255,198,11,.92);
@@ -2516,3 +2517,170 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
 .preview-frame .screen-canvas .recap-team-answer span{font-size:7px}
 .preview-frame .screen-canvas .recap-team-star{font-size:10px}
 .preview-frame .screen-canvas .recap-footer{font-size:7px;padding:3px 5px;border-radius:4px;max-height:30px}
+
+
+/* Clue Ladder: gli indizi restano visibili mentre viene aggiunto il successivo.
+   Il punteggio è visibile soltanto nella regia, non nella proiezione. */
+.screen-canvas .clue-ladder-screen{
+  position:absolute;
+  z-index:3;
+  inset:13vh 8vw 9vh;
+  display:flex;
+  flex-direction:column;
+  gap:2.5vh;
+  min-height:0;
+  align-items:stretch;
+}
+.screen-canvas .clue-ladder-heading{
+  flex:none;
+  text-align:center;
+  min-width:0;
+}
+.screen-canvas .clue-ladder-eyebrow{
+  display:inline-block;
+  font-family:var(--subtitle-font);
+  font-size:clamp(14px,1.15vw,24px);
+  font-weight:800;
+  color:var(--coral);
+  letter-spacing:.18em;
+  margin-bottom:1.2vh;
+}
+.screen-canvas .clue-ladder-heading h1{
+  margin:0;
+  font-family:var(--subtitle-font);
+  font-style:normal;
+  font-size:clamp(34px,4.1vw,84px);
+  font-weight:800;
+  line-height:1.13;
+  color:var(--blue);
+  text-wrap:balance;
+  overflow-wrap:anywhere;
+}
+.screen-canvas .clue-ladder-list{
+  list-style:none;
+  padding:0;
+  margin:0 auto;
+  width:100%;
+  max-width:82vw;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:1.3vh;
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  scrollbar-width:thin;
+}
+.screen-canvas .clue-ladder-item{
+  display:grid;
+  grid-template-columns:4vw minmax(0,1fr);
+  align-items:center;
+  flex:none;
+  gap:1.5vw;
+  padding:1.25vh 1.8vw;
+  min-height:9vh;
+  background:rgba(255,253,249,.91);
+  border:1px solid rgba(33,98,119,.17);
+  border-left:5px solid rgba(33,98,119,.32);
+  border-radius:1.1vw;
+  box-shadow:0 8px 24px rgba(33,98,119,.09);
+}
+.screen-canvas .clue-ladder-number{
+  display:grid;
+  place-items:center;
+  width:3.7vw;
+  height:3.7vw;
+  border-radius:.85vw;
+  background:var(--blue);
+  color:white;
+  font-family:var(--subtitle-font);
+  font-size:clamp(18px,1.65vw,34px);
+  font-weight:800;
+}
+.screen-canvas .clue-ladder-item p{
+  margin:0;
+  padding:0;
+  background:none;
+  box-shadow:none;
+  border-radius:0;
+  max-width:none;
+  color:var(--ink);
+  font-family:var(--body-font);
+  font-style:normal;
+  font-size:clamp(21px,2.05vw,42px);
+  font-weight:650;
+  line-height:1.27;
+  text-align:left;
+  overflow-wrap:anywhere;
+}
+.screen-canvas .clue-ladder-item.clue-ladder-new{
+  border-left-color:var(--yellow);
+  background:linear-gradient(100deg,rgba(255,246,200,.96),rgba(255,253,249,.96));
+  animation:clue-ladder-reveal .48s cubic-bezier(.22,.78,.28,1) both;
+}
+.screen-canvas .clue-ladder-new .clue-ladder-number{
+  background:var(--coral);
+}
+@keyframes clue-ladder-reveal{
+  from{opacity:0;transform:translateY(16px) scale(.988)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+.screen-canvas .clue-ladder-screen.clues-count-5 .clue-ladder-list,
+.screen-canvas .clue-ladder-screen.clues-count-6 .clue-ladder-list{gap:.85vh}
+.screen-canvas .clue-ladder-screen.clues-count-5 .clue-ladder-item,
+.screen-canvas .clue-ladder-screen.clues-count-6 .clue-ladder-item{
+  min-height:7.2vh;
+  padding:.8vh 1.5vw;
+}
+.screen-canvas .clue-ladder-screen.clues-count-5 .clue-ladder-item p,
+.screen-canvas .clue-ladder-screen.clues-count-6 .clue-ladder-item p{
+  font-size:clamp(20px,1.75vw,36px);
+}
+@media(prefers-reduced-motion:reduce){
+  .screen-canvas .clue-ladder-item.clue-ladder-new{animation:none}
+}
+
+/* Anteprima dentro la regia: tutti gli elementi scalati al riquadro. */
+.preview-frame .screen-canvas .clue-ladder-screen{
+  inset:15% 6% 10%;
+  gap:4px;
+}
+.preview-frame .screen-canvas .clue-ladder-eyebrow{
+  font-size:7px;
+  letter-spacing:1px;
+  margin-bottom:3px;
+}
+.preview-frame .screen-canvas .clue-ladder-heading h1{
+  font-size:clamp(12px,1.38vw,22px);
+  line-height:1.12;
+}
+.preview-frame .screen-canvas .clue-ladder-list{
+  gap:4px;
+  max-width:100%;
+}
+.preview-frame .screen-canvas .clue-ladder-item{
+  grid-template-columns:19px minmax(0,1fr);
+  gap:5px;
+  padding:4px 6px;
+  min-height:20px;
+  border-left-width:2px;
+  border-radius:6px;
+  box-shadow:none;
+}
+.preview-frame .screen-canvas .clue-ladder-number{
+  width:18px;
+  height:18px;
+  border-radius:5px;
+  font-size:9px;
+}
+.preview-frame .screen-canvas .clue-ladder-item p,
+.preview-frame .screen-canvas .clue-ladder-screen.clues-count-5 .clue-ladder-item p,
+.preview-frame .screen-canvas .clue-ladder-screen.clues-count-6 .clue-ladder-item p{
+  font-size:clamp(8px,.76vw,12px);
+  line-height:1.2;
+}
+.preview-frame .screen-canvas .clue-ladder-screen.clues-count-5 .clue-ladder-item,
+.preview-frame .screen-canvas .clue-ladder-screen.clues-count-6 .clue-ladder-item{
+  min-height:18px;
+  padding:3px 6px;
+}

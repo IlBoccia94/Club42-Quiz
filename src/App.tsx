@@ -384,8 +384,19 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
         {question.question_type === 'CLUE_LADDER' && question.clue_steps?.length > 0 && <div className="clues">
           <p className="eyebrow">INDIZI</p>
           {question.clue_steps.map((clue,i)=><button key={i} onClick={()=>run('master_publish_screen',{
-            p_mode:'QUESTION',p_title:question.prompt,p_body:clue,p_options:[],p_footer:`${clueScores[i] ?? 5} PUNTI`,p_round_name:round?.name,p_payload:{clue:i+1}
-          },`Indizio ${i+1} mostrato.`)}><span>#{i+1}</span><b>{clue}</b><strong>{clueScores[i] ?? 5} pt</strong></button>)}
+            p_mode:'QUESTION',
+            p_title:question.prompt,
+            p_body:null,
+            p_options:[],
+            p_footer:null,
+            p_round_name:round?.name,
+            p_payload:{
+              question_type:'CLUE_LADDER',
+              question_id:question.id,
+              clues:question.clue_steps.slice(0,i+1),
+              clue:i+1
+            }
+          },`Indizi 1–${i+1} mostrati.`)}><span>#{i+1}</span><b>{clue}</b><strong>{clueScores[i] ?? 5} pt</strong></button>)}
         </div>}
       </div>}
     </section>
@@ -858,6 +869,16 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
   const trueFalse=String(screen.payload?.question_type || '') === 'TRUE_FALSE'
   const options=trueFalse && rawOptions.length===0 ? ['VERO','FALSO'] : rawOptions
   const optionLetters=trueFalse ? ['V','F'] : LETTERS
+  // Cumulative clues are written to the shared screen payload.
+  // Previously rendered cards keep their React keys, so only the newly appended
+  // clue receives the entrance animation (including in the Master preview).
+  const visibleClues = screen.mode === 'QUESTION'
+    && screen.payload?.question_type === 'CLUE_LADDER'
+    && Array.isArray(screen.payload?.clues)
+    ? screen.payload.clues.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    : null
+  const ladderId = typeof screen.payload?.question_id === 'string' ? screen.payload.question_id : 'ladder'
+
   const recapTeams: ChoiceRecapTeam[] = Array.isArray(screen.payload?.responses)
     ? screen.payload.responses.flatMap((item: unknown) => {
         if (!item || typeof item !== 'object') return []
@@ -889,7 +910,23 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
     {screen.mode==='ROUND'&&<div className="screen-center"><small>PROSSIMO ROUND</small><h1>{screen.title}</h1><p>{screen.body}</p></div>}
     {screen.mode==='PAUSE'&&<div className="screen-center"><small>DON'T PANIC</small><h1>{screen.title||'PAUSA'}</h1><p>{screen.body}</p></div>}
     {screen.mode==='CUSTOM'&&<div className="screen-center"><h1>{screen.title}</h1><p>{screen.body}</p></div>}
-    {screen.mode==='QUESTION'&&<div className={`question-screen ${!screen.body && options.length === 0 && !screen.footer ? 'only-question' : ''}`}><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
+    {screen.mode==='QUESTION' && visibleClues && visibleClues.length > 0
+      ? <section className={`clue-ladder-screen clues-count-${Math.min(visibleClues.length,6)}`} aria-label="Indizi della domanda">
+          <div className="clue-ladder-heading">
+            <span className="clue-ladder-eyebrow">INDIZI</span>
+            <h1>{screen.title}</h1>
+          </div>
+          <ol className="clue-ladder-list">
+            {visibleClues.map((clue,i)=><li
+              key={`${ladderId}:${i}`}
+              className={i===visibleClues.length-1?'clue-ladder-item clue-ladder-new':'clue-ladder-item'}
+            >
+              <span className="clue-ladder-number" aria-label={`Indizio ${i+1}`}>{String(i+1).padStart(2,'0')}</span>
+              <p>{clue}</p>
+            </li>)}
+          </ol>
+        </section>
+      : screen.mode==='QUESTION'&&<div className={`question-screen ${!screen.body && options.length === 0 && !screen.footer ? 'only-question' : ''}`}><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
 
     {screen.mode==='CHOICE_RECAP'&&<div className={`recap-screen density-${recapDensity} ${recapRevealed?'revealed':''}`}>
       <div className="recap-intro">
