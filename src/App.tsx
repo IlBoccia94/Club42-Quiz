@@ -383,7 +383,7 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
       <div className="question-list">
         {filteredQuestions.map(q => <button className={questionId===q.id?'selected':''} onClick={()=>setQuestionId(q.id)} key={q.id}><span>{q.order_index}</span><b>{q.prompt}</b><small>{state.categories.find(c=>c.id===q.category_id)?.name || q.question_type}</small></button>)}
         {!round?.questions.length && <div className="empty">Nessuna domanda in questo round. Creala dalla sezione Domande.</div>}
-        {round?.questions.length && !filteredQuestions.length ? <div className="empty">Nessuna domanda in questa categoria.</div> : null}
+        {Boolean(round?.questions.length) && !filteredQuestions.length ? <div className="empty">Nessuna domanda in questa categoria.</div> : null}
       </div>
       {question && <div className="selected-question">
         <p className="eyebrow">PRONTA</p><h3>{question.prompt}</h3>
