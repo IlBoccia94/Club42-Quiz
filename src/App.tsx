@@ -311,6 +311,7 @@ function MasterPage() {
 function LivePanel({ token, state, quiz, notice }: { token: string; state: PublicState; quiz: QuizRound[]; notice: (s:string)=>void }) {
   const [roundId, setRoundId] = useState('')
   const [questionId, setQuestionId] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('ALL')
   const [customTitle, setCustomTitle] = useState('')
   const [customBody, setCustomBody] = useState('')
   const [timerSeconds, setTimerSeconds] = useState('30')
@@ -318,6 +319,8 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
   const timerStatus = useScreenCountdown(state.screen, state.clockOffsetMs)
   const round = quiz.find(r => r.id === roundId) || quiz[0] || null
   const question = round?.questions.find(q => q.id === questionId) || null
+  const availableCategoryIds = [...new Set((round?.questions || []).map(q=>q.category_id).filter((id): id is string => Boolean(id)))]
+  const filteredQuestions = (round?.questions || []).filter(q => categoryFilter === 'ALL' || q.category_id === categoryFilter)
 
   useEffect(() => { if (!roundId && quiz[0]) setRoundId(quiz[0].id) }, [quiz, roundId])
   async function run(name: string, args: Record<string, unknown>, ok: string) {
@@ -367,12 +370,20 @@ function LivePanel({ token, state, quiz, notice }: { token: string; state: Publi
     <section className="panel question-browser">
       <div className="section-head"><div><p className="eyebrow">PREPARA</p><h2>Domanda</h2></div></div>
       <label>Round</label>
-      <select value={round?.id || ''} onChange={e => { setRoundId(e.target.value); setQuestionId('') }}>
+      <select value={round?.id || ''} onChange={e => { setRoundId(e.target.value); setQuestionId('');setCategoryFilter('ALL') }}>
         {quiz.filter(r=>r.active).map(r => <option value={r.id} key={r.id}>{r.order_index}. {r.name}</option>)}
       </select>
+      {availableCategoryIds.length > 1 && <>
+        <label htmlFor="live-question-category">Categoria</label>
+        <select id="live-question-category" value={categoryFilter} onChange={e=>{setCategoryFilter(e.target.value);setQuestionId('')}}>
+          <option value="ALL">Tutte le categorie ({round?.questions.length || 0})</option>
+          {availableCategoryIds.map(id => <option key={id} value={id}>{state.categories.find(c=>c.id===id)?.name||id} ({round?.questions.filter(q=>q.category_id===id).length||0})</option>)}
+        </select>
+      </>}
       <div className="question-list">
-        {(round?.questions || []).map((q,i) => <button className={questionId===q.id?'selected':''} onClick={()=>setQuestionId(q.id)} key={q.id}><span>{i+1}</span><b>{q.prompt}</b><small>{q.category_id || q.question_type}</small></button>)}
+        {filteredQuestions.map(q => <button className={questionId===q.id?'selected':''} onClick={()=>setQuestionId(q.id)} key={q.id}><span>{q.order_index}</span><b>{q.prompt}</b><small>{state.categories.find(c=>c.id===q.category_id)?.name || q.question_type}</small></button>)}
         {!round?.questions.length && <div className="empty">Nessuna domanda in questo round. Creala dalla sezione Domande.</div>}
+        {round?.questions.length && !filteredQuestions.length ? <div className="empty">Nessuna domanda in questa categoria.</div> : null}
       </div>
       {question && <div className="selected-question">
         <p className="eyebrow">PRONTA</p><h3>{question.prompt}</h3>
