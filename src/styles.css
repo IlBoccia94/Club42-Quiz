@@ -2684,3 +2684,72 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
   min-height:18px;
   padding:3px 6px;
 }
+
+
+/* Uomo Gatto: testo completo delle canzoni importate, senza mostrare la soluzione. */
+.screen-canvas .music-question-screen{
+  position:absolute;
+  z-index:3;
+  inset:12vh 10vw 8vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:2vh;
+  min-height:0;
+}
+.screen-canvas .music-question-intro{
+  flex:none;
+  text-align:center;
+  max-width:85vw;
+}
+.screen-canvas .music-question-intro span{
+  font-family:var(--subtitle-font);
+  letter-spacing:.14em;
+  font-weight:800;
+  color:var(--coral);
+  font-size:clamp(13px,1.05vw,24px);
+}
+.screen-canvas .music-question-intro h1{
+  color:var(--blue);
+  font-family:var(--subtitle-font);
+  font-style:normal;
+  font-size:clamp(31px,3.4vw,72px);
+  line-height:1.12;
+  margin:1vh 0 0;
+  overflow-wrap:anywhere;
+}
+.screen-canvas .music-lyrics{
+  flex:1;
+  min-height:0;
+  overflow-y:auto;
+  scrollbar-width:thin;
+  width:min(100%,78vw);
+  border:1px solid rgba(33,98,119,.14);
+  background:rgba(255,253,249,.9);
+  border-radius:1.4vw;
+  padding:2.2vh 3vw;
+  box-shadow:0 12px 28px rgba(33,98,119,.09);
+  text-align:center;
+}
+.screen-canvas .music-lyrics p{
+  margin:0 0 .75vh;
+  color:var(--ink);
+  font-family:var(--body-font);
+  font-style:normal;
+  font-weight:650;
+  font-size:clamp(19px,1.85vw,42px);
+  line-height:1.22;
+  overflow-wrap:anywhere;
+}
+.preview-frame .screen-canvas .music-question-screen{inset:15% 8% 9%;gap:4px}
+.preview-frame .screen-canvas .music-question-intro span{font-size:6px}
+.preview-frame .screen-canvas .music-question-intro h1{
+  font-size:clamp(10px,1.12vw,18px);
+  margin:3px 0 0;
+}
+.preview-frame .screen-canvas .music-lyrics{border-radius:6px;padding:6px 8px;width:100%}
+.preview-frame .screen-canvas .music-lyrics p{
+  font-size:clamp(7px,.75vw,11px);
+  line-height:1.15;
+  margin-bottom:2px;
+}

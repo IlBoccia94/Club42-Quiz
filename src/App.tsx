@@ -878,6 +878,13 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
     ? screen.payload.clues.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
     : null
   const ladderId = typeof screen.payload?.question_id === 'string' ? screen.payload.question_id : 'ladder'
+  // I testi delle canzoni sono nel contenuto pubblico della domanda, non nella risposta.
+  // Titolo e interprete restano nel record privato question_answers finché non vengono rivelati.
+  const songMetadata = screen.payload?.question_type === 'MUSIC'
+    && typeof screen.payload?.metadata === 'object'
+    && screen.payload.metadata !== null
+    ? screen.payload.metadata as Record<string, unknown> : null
+  const songLyrics = typeof songMetadata?.lyrics === 'string' ? songMetadata.lyrics : null
 
   const recapTeams: ChoiceRecapTeam[] = Array.isArray(screen.payload?.responses)
     ? screen.payload.responses.flatMap((item: unknown) => {
@@ -925,6 +932,11 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
               <p>{clue}</p>
             </li>)}
           </ol>
+        </section>
+      : screen.mode==='QUESTION'&&songLyrics
+      ? <section className="music-question-screen" aria-label="Testo della canzone in spezzino">
+          <div className="music-question-intro"><span>L'UOMO GATTO · TESTO IN SPEZZINO</span><h1>{screen.title}</h1></div>
+          <div className="music-lyrics">{songLyrics.split('\n').filter(Boolean).map((line,i)=><p key={i}>{line}</p>)}</div>
         </section>
       : screen.mode==='QUESTION'&&<div className={`question-screen ${!screen.body && options.length === 0 && !screen.footer ? 'only-question' : ''}`}><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
 

@@ -94,3 +94,13 @@ Migrazione `20261014001258_choice_recap_screen_and_reveal`:
 - La visualizzazione pubblica mostra gli indizi progressivi in card leggibili con numerazione, senza punteggi e senza caratteri in corsivo. Soltanto la card nuova riceve una breve animazione; le precedenti mantengono le proprie chiavi React e restano ferme.
 - I punti continuano a essere mostrati soltanto nella regia Master per l'organizzatore. `Mostra risposta` continua a usare `master_publish_question` e mantiene invariata la schermata ANSWER.
 - Non serve alcuna migrazione di database: le informazioni viaggiano nel payload già supportato da `master_publish_screen` e dallo stato proiettato via Realtime.
+
+
+## Importazione domande dell'evento 28 ottobre 2026
+
+- Inseriti 276 quesiti con identificativi stabili derivati da tipo e posizione, preservando i round e le categorie già presenti. Ripetere l'import non duplica i quesiti e non altera le risposte delle squadre.
+- La categoria aggiuntiva `SPEZZINO` (Asonbelindespezin) contiene 20 domande nella modalità STANDARD.
+- Per Clue Ladder il prompt pubblico è generico: il nome da indovinare si trova solo in `question_answers` ed è quindi nascosto fino alla rivelazione.
+- Le risposte A/B/C/D delle multiple e finale sono conservate solo nella tabella delle risposte, non nel metadata pubblico.
+- I testi delle 10 canzoni in spezzino sono salvati in `questions.metadata.lyrics` e ora sono visualizzati sullo schermo quando la domanda viene pubblicata. I titoli sono conservati in `question_answers`; gli interpreti non sono indicati nel documento e non sono stati inventati.
+- Il documento non fornisce quesiti nuovi per DON’T PANIC e Parla come Marvin; queste sezioni restano inalterate.
