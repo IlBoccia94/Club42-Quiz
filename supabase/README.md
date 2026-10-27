@@ -104,3 +104,11 @@ Migrazione `20261014001258_choice_recap_screen_and_reveal`:
 - Le risposte A/B/C/D delle multiple e finale sono conservate solo nella tabella delle risposte, non nel metadata pubblico.
 - I testi delle 10 canzoni in spezzino sono salvati in `questions.metadata.lyrics` e ora sono visualizzati sullo schermo quando la domanda viene pubblicata. I titoli sono conservati in `question_answers`; gli interpreti non sono indicati nel documento e non sono stati inventati.
 - Il documento non fornisce quesiti nuovi per DON’T PANIC e Parla come Marvin; queste sezioni restano inalterate.
+
+
+## Campi facoltativi vuoti: correzione del 27 ottobre 2026
+
+- Durante l'importazione del Word erano finite nel campo `question_answers.explanation` delle stringhe letterali `null`, invece del valore SQL NULL. Puliti i dati importati (comprese le virgolette di serializzazione JSON su note e risposte) e sistemata la domanda successivamente modificata nella regia.
+- Una funzione `private.quiz_clean_optional_text` e un trigger `BEFORE INSERT OR UPDATE` normalizzano a SQL NULL le spiegazioni mancanti, vuote, `null` e `undefined`, anche se inserite direttamente sul database.
+- Le RPC Master che salvano le domande e pubblicano lo schermo normalizzano i campi facoltativi. La UI ignora gli stessi segnaposto nelle spiegazioni, nei titoli e nei testi ricevuti da Supabase, evitando box vuoti e scritte `null` in proiezione.
+- Il modulo di modifica domande conserva `metadata` preesistente (es. `lyrics`), che prima veniva azzerato dopo un salvataggio.

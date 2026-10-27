@@ -22,6 +22,14 @@ type LiveInteraction = {
   closed_at?: string | null
   responses: LiveInteractionResponse[]
 }
+// SQL NULL e il segnaposto testuale "null" sono entrambi campi vuoti,
+ // non contenuti da mostrare nella regia o nella proiezione.
+function optionalText(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const trimmed = value.trim()
+  return trimmed && !/^(null|undefined)$/i.test(trimmed) ? value : ''
+}
+
 function questionInteractionMode(question?: QuizQuestion | null): 'BUZZER' | 'CHOICE' {
   return question?.question_type === 'MULTIPLE_CHOICE' || question?.question_type === 'TRUE_FALSE' ? 'CHOICE' : 'BUZZER'
 }
@@ -633,7 +641,7 @@ function QuestionDrawer({token,round,categories,question,close,saved,notice}:{to
   const [category,setCategory]=useState(question?.category_id||'')
   const [type,setType]=useState(question?.question_type||round.template_id||'STANDARD')
   const [answer,setAnswer]=useState(question?.answer_text||'')
-  const [explanation,setExplanation]=useState(question?.explanation||'')
+  const [explanation,setExplanation]=useState(optionalText(question?.explanation))
   const [order,setOrder]=useState(question?.order_index||round.questions.length+1)
   const [media,setMedia]=useState(question?.media_url||'')
   const [options,setOptions]=useState<string[]>(question?.options?.length?question.options:['','','',''])
@@ -641,7 +649,7 @@ function QuestionDrawer({token,round,categories,question,close,saved,notice}:{to
   const [busy,setBusy]=useState(false)
   async function save(e:FormEvent) {
     e.preventDefault();setBusy(true)
-    const payload={id:question?.id||null,round_id:round.id,category_id:category||null,question_type:type,prompt:promptText,options:type==='MULTIPLE_CHOICE'?options.filter(x=>x.trim()):[],clue_steps:type==='CLUE_LADDER'?clues.split('\n').map(x=>x.trim()).filter(Boolean):[],media_url:media||null,metadata:{},order_index:order,answer_text:answer,answer_payload:{},explanation:explanation||null}
+    const payload={id:question?.id||null,round_id:round.id,category_id:category||null,question_type:type,prompt:promptText,options:type==='MULTIPLE_CHOICE'?options.filter(x=>x.trim()):[],clue_steps:type==='CLUE_LADDER'?clues.split('\n').map(x=>x.trim()).filter(Boolean):[],media_url:media||null,metadata:question?.metadata||{},order_index:order,answer_text:answer,answer_payload:{},explanation:optionalText(explanation)||null}
     try {await rpc('master_save_question',{p_session_token:token,p_question:payload});notice('Domanda salvata.');await saved()}catch(e){notice(msg(e))}finally{setBusy(false)}
   }
   async function remove(){if(!question||!confirm('Eliminare questa domanda?'))return;try{await rpc('master_delete_question',{p_session_token:token,p_question_id:question.id});notice('Domanda eliminata.');await saved()}catch(e){notice(msg(e))}}
@@ -876,17 +884,22 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
   if(!screen)return <div className="screen-canvas">Connessione…</div>
   if(screen.blackout)return <div className="screen-canvas blackout"><div className="big42">42</div><b>CLUB42</b></div>
   const board=teams.slice().sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name,'it'))
-  const rawOptions=Array.isArray(screen.options)?screen.options.map(String):[]
+  const rawOptions=Array.isArray(screen.options)?screen.options.map(optionalText).filter(Boolean):[]
   const trueFalse=String(screen.payload?.question_type || '') === 'TRUE_FALSE'
   const options=trueFalse && rawOptions.length===0 ? ['VERO','FALSO'] : rawOptions
   const optionLetters=trueFalse ? ['V','F'] : LETTERS
+  const screenTitle=optionalText(screen.title)
+  const screenBody=optionalText(screen.body)
+  const screenFooter=optionalText(screen.footer)
+  const screenRoundName=optionalText(screen.round_name)
+
   // Cumulative clues are written to the shared screen payload.
   // Previously rendered cards keep their React keys, so only the newly appended
   // clue receives the entrance animation (including in the Master preview).
   const visibleClues = screen.mode === 'QUESTION'
     && screen.payload?.question_type === 'CLUE_LADDER'
     && Array.isArray(screen.payload?.clues)
-    ? screen.payload.clues.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    ? screen.payload.clues.filter((value): value is string => typeof value === 'string' && optionalText(value).length > 0)
     : null
   const ladderId = typeof screen.payload?.question_id === 'string' ? screen.payload.question_id : 'ladder'
   // I testi delle canzoni sono nel contenuto pubblico della domanda, non nella risposta.
@@ -895,7 +908,7 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
     && typeof screen.payload?.metadata === 'object'
     && screen.payload.metadata !== null
     ? screen.payload.metadata as Record<string, unknown> : null
-  const songLyrics = typeof songMetadata?.lyrics === 'string' ? songMetadata.lyrics : null
+  const songLyrics = optionalText(songMetadata?.lyrics)
 
   const recapTeams: ChoiceRecapTeam[] = Array.isArray(screen.payload?.responses)
     ? screen.payload.responses.flatMap((item: unknown) => {
@@ -907,7 +920,7 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
     : []
   const recapRevealed = screen.payload?.revealed === true
   const correctChoice = recapRevealed && typeof screen.payload?.correct_choice === 'string' ? screen.payload.correct_choice : null
-  const answerText = recapRevealed && typeof screen.payload?.answer_text === 'string' ? screen.payload.answer_text : null
+  const answerText = recapRevealed ? optionalText(screen.payload?.answer_text) : ''
   const recapAnswered = recapTeams.filter(team=>team.choice !== null).length
   const recapDensity = recapTeams.length > 26 ? 'many' : recapTeams.length > 12 ? 'medium' : 'few'
   const choiceLabel = (choice: string | null) => {
@@ -923,16 +936,16 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
       <div className="screen-timer-content"><span>TEMPO RIMANENTE</span><strong>{timer.seconds} s</strong></div>
       <div className="screen-timer-track"><div className="screen-timer-fill" style={{width: `${timer.percentage}%`}}/></div>
     </div>}
-    <div className="screen-top"><Logo compact/>{screen.round_name&&<b>{screen.round_name}</b>}</div>
-    {screen.mode==='LOGO'&&<div className="screen-center logo-screen"><div className="big42">42</div><h1>{screen.title||'CLUB42'}</h1><p>{screen.body||'Quiz a squadre'}</p></div>}
-    {screen.mode==='ROUND'&&<div className="screen-center"><small>PROSSIMO ROUND</small><h1>{screen.title}</h1><p>{screen.body}</p></div>}
-    {screen.mode==='PAUSE'&&<div className="screen-center"><small>DON'T PANIC</small><h1>{screen.title||'PAUSA'}</h1><p>{screen.body}</p></div>}
-    {screen.mode==='CUSTOM'&&<div className="screen-center"><h1>{screen.title}</h1><p>{screen.body}</p></div>}
+    <div className="screen-top"><Logo compact/>{screenRoundName&&<b>{screenRoundName}</b>}</div>
+    {screen.mode==='LOGO'&&<div className="screen-center logo-screen"><div className="big42">42</div><h1>{screenTitle||'CLUB42'}</h1><p>{screenBody||'Quiz a squadre'}</p></div>}
+    {screen.mode==='ROUND'&&<div className="screen-center"><small>PROSSIMO ROUND</small><h1>{screenTitle}</h1><p>{screenBody}</p></div>}
+    {screen.mode==='PAUSE'&&<div className="screen-center"><small>DON'T PANIC</small><h1>{screenTitle||'PAUSA'}</h1><p>{screenBody}</p></div>}
+    {screen.mode==='CUSTOM'&&<div className="screen-center"><h1>{screenTitle}</h1><p>{screenBody}</p></div>}
     {screen.mode==='QUESTION' && visibleClues && visibleClues.length > 0
       ? <section className={`clue-ladder-screen clues-count-${Math.min(visibleClues.length,6)}`} aria-label="Indizi della domanda">
           <div className="clue-ladder-heading">
             <span className="clue-ladder-eyebrow">INDIZI</span>
-            <h1>{screen.title}</h1>
+            <h1>{screenTitle}</h1>
           </div>
           <ol className="clue-ladder-list">
             {visibleClues.map((clue,i)=><li
@@ -946,15 +959,15 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
         </section>
       : screen.mode==='QUESTION'&&songLyrics
       ? <section className="music-question-screen" aria-label="Testo della canzone in spezzino">
-          <div className="music-question-intro"><span>L'UOMO GATTO · TESTO IN SPEZZINO</span><h1>{screen.title}</h1></div>
+          <div className="music-question-intro"><span>L'UOMO GATTO · TESTO IN SPEZZINO</span><h1>{screenTitle}</h1></div>
           <div className="music-lyrics">{songLyrics.split('\n').filter(Boolean).map((line,i)=><p key={i}>{line}</p>)}</div>
         </section>
-      : screen.mode==='QUESTION'&&<div className={`question-screen ${!screen.body && options.length === 0 && !screen.footer ? 'only-question' : ''}`}><h1>{screen.title}</h1>{screen.body&&<p className="clue-on-screen">{screen.body}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screen.footer&&<strong className="question-footer">{screen.footer}</strong>}</div>}
+      : screen.mode==='QUESTION'&&<div className={`question-screen ${!screenBody && options.length === 0 && !screenFooter ? 'only-question' : ''}`}><h1>{screenTitle}</h1>{screenBody&&<p className="clue-on-screen">{screenBody}</p>}{options.length>0&&<div className={`answers ${trueFalse?'true-false':''}`}>{options.map((o,i)=><div key={i}><span>{optionLetters[i]||i+1}</span><b>{o}</b></div>)}</div>}{screenFooter&&<strong className="question-footer">{screenFooter}</strong>}</div>}
 
     {screen.mode==='CHOICE_RECAP'&&<div className={`recap-screen density-${recapDensity} ${recapRevealed?'revealed':''}`}>
       <div className="recap-intro">
         <div className="recap-meta"><b>{recapRevealed?'✦ RISULTATI DELLE SQUADRE':'RISPOSTE CHIUSE'}</b><span>{recapAnswered}/{recapTeams.length} squadre hanno risposto</span></div>
-        <h1>{screen.title}</h1>
+        <h1>{screenTitle}</h1>
       </div>
       <div className="recap-panels">
         <section className="recap-options" aria-label="Possibili risposte">
@@ -988,14 +1001,14 @@ function ScreenCanvas({screen,teams,preview=false,clockOffsetMs}:{screen:ScreenS
           </div>}
         </section>
       </div>
-      {recapRevealed&&screen.footer&&<div className="recap-footer"><strong>LO SAPEVI?</strong><span>{screen.footer}</span></div>}
+      {recapRevealed&&screenFooter&&<div className="recap-footer"><strong>LO SAPEVI?</strong><span>{screenFooter}</span></div>}
     </div>}
     {screen.mode==='ANSWER'&&<div className="screen-center answer">
-      {typeof screen.payload?.question==='string'&&<p className="answer-question">{screen.payload.question}</p>}
-      <div className="answer-result"><small>RISPOSTA CORRETTA</small><h1>{screen.body}</h1></div>
-      {screen.footer&&<div className="answer-note">{screen.footer}</div>}
+      {optionalText(screen.payload?.question)&&<p className="answer-question">{optionalText(screen.payload?.question)}</p>}
+      <div className="answer-result"><small>RISPOSTA CORRETTA</small><h1>{screenBody}</h1></div>
+      {screenFooter&&<div className="answer-note">{screenFooter}</div>}
     </div>}
-    {screen.mode==='LEADERBOARD'&&<div className="board-screen"><h1>{screen.title||'CLASSIFICA'}</h1><div>{board.map((t,i)=><article key={t.id} className={`place-${i+1}`}><span>{i+1}</span><b>{t.name}</b><strong>{t.score}<small> pt</small></strong></article>)}</div></div>}
+    {screen.mode==='LEADERBOARD'&&<div className="board-screen"><h1>{screenTitle||'CLASSIFICA'}</h1><div>{board.map((t,i)=><article key={t.id} className={`place-${i+1}`}><span>{i+1}</span><b>{t.name}</b><strong>{t.score}<small> pt</small></strong></article>)}</div></div>}
     <div className="screen-foot">club42 · la cultura passa anche attraverso il divertimento</div>
   </div>
 }
