@@ -112,3 +112,12 @@ Migrazione `20261014001258_choice_recap_screen_and_reveal`:
 - Una funzione `private.quiz_clean_optional_text` e un trigger `BEFORE INSERT OR UPDATE` normalizzano a SQL NULL le spiegazioni mancanti, vuote, `null` e `undefined`, anche se inserite direttamente sul database.
 - Le RPC Master che salvano le domande e pubblicano lo schermo normalizzano i campi facoltativi. La UI ignora gli stessi segnaposto nelle spiegazioni, nei titoli e nei testi ricevuti da Supabase, evitando box vuoti e scritte `null` in proiezione.
 - Il modulo di modifica domande conserva `metadata` preesistente (es. `lyrics`), che prima veniva azzerato dopo un salvataggio.
+
+
+## Audio personalizzati per la Soundboard (ottobre 2026)
+
+- Il bucket Supabase Storage `club42-quiz-audio` è **privato** (10 MB per file); la tabella `public.soundboard_uploaded_audio` memorizza nomi, percorsi e dimensioni con RLS e senza accesso diretto anonimo.
+- Edge Function `quiz-soundboard-audio`, configurata con `verify_jwt=false` perché **verifica internamente** il token custom della sessione Master usando la RPC `master_soundboard_get` prima di ogni azione. La chiave service role rimane esclusivamente nel server.
+- Upload ammessi: MP3, WAV, OGG, M4A, AAC, WebM, FLAC. Il backend controlla formato dichiarato, estensione, firma del file, titolo e limite 200 suoni.
+- Elenco file, URL temporanei firmati (60 minuti), cancellazione definitiva, aggiornamento automatico ogni 90 secondi. La scheda Audio personalizzati è indipendente da Myinstants; il comando globale STOP AUDIO e Esc interrompono anche il player locale.
+- Al deploy usare Supabase Edge Function `quiz-soundboard-audio` con `verify_jwt=false` e il servizio Supabase Storage standard. Non aggiungere alcuna chiave segreta al codice frontend.
