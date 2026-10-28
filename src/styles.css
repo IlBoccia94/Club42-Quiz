@@ -2753,3 +2753,38 @@ h1,h2,h3,.mode b,.brand-subtitle,.screen-canvas h1{font-family:var(--title-font)
   line-height:1.15;
   margin-bottom:2px;
 }
+
+
+/* Soundboard: audio caricati in modo privato su Supabase */
+.uploaded-audio-section{display:flex;flex-direction:column;gap:18px;padding:12px 0 22px}
+.uploaded-audio-editor{
+  border:1px solid rgba(33,98,119,.22);border-radius:16px;padding:18px;
+  background:linear-gradient(125deg,rgba(255,198,11,.13),rgba(33,98,119,.07));
+}
+.uploaded-audio-editor h3{margin:0 0 8px;font-size:18px}
+.uploaded-audio-editor>p{font-size:12px;color:var(--muted);line-height:1.5}
+.uploaded-audio-editor form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:10px;align-items:end}
+.uploaded-audio-editor label{display:flex;flex-direction:column;gap:7px;font-size:11px;font-weight:800;min-width:0}
+.uploaded-audio-editor input{display:block;width:100%;min-width:0;background:#fff;border:1px solid var(--line);border-radius:9px;padding:9px;font:inherit;font-size:12px}
+.uploaded-audio-editor input[type=file]{max-width:100%}
+.uploaded-audio-editor form button{padding:9px 13px;min-height:40px}
+.uploaded-audio-editor form button:disabled{opacity:.55;cursor:not-allowed}
+.uploaded-audio-editor .uploaded-audio-note{font-size:10px;margin:11px 0 0}
+.uploaded-audio-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.uploaded-audio-heading h3{margin:0;font-size:16px}
+.uploaded-audio-heading span{font-size:11px;color:var(--blue);font-weight:700}
+.uploaded-audio-heading button{margin-left:auto;background:#fff;border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:11px}
+.uploaded-audio-tile{display:flex;align-items:center;flex-direction:column;justify-content:center;gap:10px;padding:14px}
+.uploaded-audio-play{
+  width:78px;height:78px;flex:none;border:0;border-radius:50%;
+  color:white;font-size:28px;background:radial-gradient(circle at 28% 20%,#ff9184,#e13942);
+  box-shadow:0 6px 0 #9d2530,0 12px 22px rgba(163,35,48,.23);cursor:pointer;
+  transition:transform .14s ease,box-shadow .14s ease;
+}
+.uploaded-audio-play:hover{transform:translateY(-2px);box-shadow:0 8px 0 #9d2530,0 14px 26px rgba(163,35,48,.3)}
+.uploaded-audio-play:active{transform:translateY(4px);box-shadow:0 2px 0 #9d2530}
+.uploaded-audio-play.playing{background:radial-gradient(circle at 28% 20%,#55c99d,#0d896b);box-shadow:0 6px 0 #076b54}
+.uploaded-audio-tile>strong{text-align:center;font-size:12px;line-height:1.25;overflow-wrap:anywhere}
+.uploaded-audio-tile>small{font-size:10px;color:var(--blue)}
+.uploaded-audio-tile .myinstants-stop-one:disabled{opacity:.48;cursor:not-allowed}
+@media(max-width:860px){.uploaded-audio-editor form{grid-template-columns:1fr}}
