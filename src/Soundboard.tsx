@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSoundboardLibrary } from './useSoundboardLibrary'
+import UploadedAudioPanel from './UploadedAudioPanel'
 
 type Group = 'Quiz' | 'Timer' | 'Buzzer' | 'Corrette' | 'Sbagliate' | 'Applausi' | 'Suspense' | 'Aggiunti'
 type Instant = { title: string; slug: string; group: Group; featured: boolean }
-type Filter = 'all' | 'featured' | 'favorites' | Group
+type Filter = 'all' | 'featured' | 'favorites' | 'uploaded' | Group
 
 // Riferimenti a pagine Myinstants effettivamente individuate. Solo embed ufficiali.
 // Nessun MP3 viene copiato o ridistribuito nel repository Club42.
@@ -144,6 +145,7 @@ export default function Soundboard({ token }: { token: string }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [limit, setLimit] = useState(PAGE_SIZE)
+  const [stopSignal, setStopSignal] = useState(0)
   const { custom: savedCustom, favorites, syncStatus, addCustom: persistCustom,
     removeCustom: deleteCustom, setFavorite, retrySync } = useSoundboardLibrary(token)
   const custom = useMemo<Instant[]>(() =>
@@ -158,6 +160,7 @@ export default function Soundboard({ token }: { token: string }) {
   const individualTimers = useRef<Map<string, number>>(new Map())
 
   const stopAll = useCallback(() => {
+    setStopSignal(value => value + 1)
     // Smontare fisicamente tutti gli iframe interrompe i loro media cross-origin.
     // Un semplice cambio di chiave/src può lasciare audio attivo su alcuni browser.
     if (stopTimer.current !== null) window.clearTimeout(stopTimer.current)
@@ -272,10 +275,10 @@ export default function Soundboard({ token }: { token: string }) {
 
   return <main className="panel soundboard myinstants-board">
     <div className="section-head">
-      <div><p className="eyebrow">QUIZ · TIMER · MEME</p><h2>Myinstants</h2></div>
+      <div><p className="eyebrow">QUIZ · TIMER · MEME · AUDIO</p><h2>Soundboard Club42</h2></div>
       <span className="myinstants-count">{sounds.length} suoni</span>
     </div>
-    <p className="sound-help">Premi i pulsanti rossi originali di Myinstants. Per interrompere subito musica e suoni lunghi, usa il comando qui sotto.</p>
+    <p className="sound-help">Usa i suoni Myinstants oppure carica file nella categoria Audio personalizzati. Con STOP AUDIO interrompi qualsiasi riproduzione.</p>
     <div className={`myinstants-sync-status status-${syncStatus}`} role="status">
       <span>{syncStatus === 'synced' ? '☁ Pulsanti e preferiti salvati su Supabase'
         : syncStatus === 'connecting' ? '↻ Sincronizzazione soundboard…'
@@ -285,7 +288,7 @@ export default function Soundboard({ token }: { token: string }) {
     </div>
 
     <div className="myinstants-stopbar">
-      <button type="button" className="myinstants-stop myinstants-stop-prominent" onClick={stopAll} aria-label="STOP AUDIO: interrompi tutti i suoni Myinstants">
+      <button type="button" className="myinstants-stop myinstants-stop-prominent" onClick={stopAll} aria-label="STOP AUDIO: interrompi tutti i suoni Myinstants e i file caricati">
         <span aria-hidden="true">■</span> STOP AUDIO
       </button>
       <small>Ferma tutti · Esc*</small>
@@ -299,10 +302,12 @@ export default function Soundboard({ token }: { token: string }) {
       <button className={filter === 'featured' ? 'selected' : ''} onClick={() => changeFilter('featured')}>★ In evidenza</button>
       <button className={filter === 'favorites' ? 'selected' : ''} onClick={() => changeFilter('favorites')}>Preferiti ({favorites.length})</button>
       <button className={filter === 'all' ? 'selected' : ''} onClick={() => changeFilter('all')}>Tutti ({sounds.length})</button>
+      <button className={filter === 'uploaded' ? 'selected' : ''} onClick={() => changeFilter('uploaded')}>🎵 Audio personalizzati</button>
       {GROUPS.map(group => <button key={group} className={filter === group ? 'selected' : ''}
         onClick={() => changeFilter(group)}>{group}</button>)}
     </div>
 
+    {filter === 'uploaded' ? <UploadedAudioPanel token={token} stopSignal={stopSignal} /> : <>
     <div className="myinstants-actions">
       <span>{filtered.length} trovati · {visible.length} mostrati</span>
       <a href={SEARCH_URL} target="_blank" rel="noopener noreferrer">Cerca su Myinstants ↗</a>
@@ -350,6 +355,7 @@ export default function Soundboard({ token }: { token: string }) {
       {message && <div className="myinstants-message" role="status">{message}</div>}
     </div>
 
-    <p className="myinstants-disclaimer">*Esc interrompe i suoni quando il focus è sulla regia, non all’interno di un iframe. Il tasto STOP AUDIO rimane utilizzabile in entrambi i casi. Gli embed richiedono Internet e l’eventuale riproduzione pubblica deve rispettare i diritti relativi a ciascun audio.</p>
+    </>}
+    <p className="myinstants-disclaimer">*Esc interrompe i suoni quando il focus è sulla regia, non all’interno di un iframe. Il tasto STOP AUDIO rimane utilizzabile in entrambi i casi. Gli embed richiedono Internet. Gli audio personalizzati sono su Supabase. Rispetta i diritti di utilizzo e riproduzione dei file.</p>
   </main>
 }
