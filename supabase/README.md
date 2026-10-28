@@ -121,3 +121,8 @@ Migrazione `20261014001258_choice_recap_screen_and_reveal`:
 - Upload ammessi: MP3, WAV, OGG, M4A, AAC, WebM, FLAC. Il backend controlla formato dichiarato, estensione, firma del file, titolo e limite 200 suoni.
 - Elenco file, URL temporanei firmati (60 minuti), cancellazione definitiva, aggiornamento automatico ogni 90 secondi. La scheda Audio personalizzati è indipendente da Myinstants; il comando globale STOP AUDIO e Esc interrompono anche il player locale.
 - Al deploy usare Supabase Edge Function `quiz-soundboard-audio` con `verify_jwt=false` e il servizio Supabase Storage standard. Non aggiungere alcuna chiave segreta al codice frontend.
+
+
+### Fix del 28 ottobre: permessi della Edge Function
+
+La RPC `public.master_soundboard_get` invoca la funzione privata `private.master_soundboard_get` con permessi dell'utente chiamante. La Edge Function utilizza `service_role`, che inizialmente non disponeva dell'accesso al relativo schema e della permission EXECUTE sulla funzione privata. Le richieste di upload e lista venivano quindi bloccate con HTTP 403 in fase di autenticazione. Migrazione `fix_edge_soundboard_master_session_permissions`: concessi esclusivamente USAGE dello schema `private` ed EXECUTE su questa RPC privata al ruolo `service_role`. Non è stato aggiunto alcun accesso anonimo ai file. Il form ora indica gli errori e quando è in fase di caricamento.

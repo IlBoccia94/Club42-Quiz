@@ -108,7 +108,10 @@ export default function UploadedAudioPanel({ token, stopSignal }: { token: strin
 
   async function add(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!file) return
+    if (!file) {
+      setMessage('Seleziona un file audio prima di creare il pulsante.')
+      return
+    }
     if (file.size <= 0 || file.size > 10 * 1024 * 1024) {
       setMessage('File audio troppo grande: massimo 10 MB.')
       return
@@ -119,7 +122,7 @@ export default function UploadedAudioPanel({ token, stopSignal }: { token: strin
     form.append('title', title.trim())
     form.append('file', file)
     setBusy(true)
-    setMessage('')
+    setMessage('⏳ Sto caricando il file audio su Supabase…')
     try {
       await request(form)
       setFile(null)
@@ -128,7 +131,8 @@ export default function UploadedAudioPanel({ token, stopSignal }: { token: strin
       setMessage('✓ Audio salvato su Supabase e disponibile nelle altre regie.')
       await reload()
     } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : 'Caricamento fallito.')
+      const detail = cause instanceof Error ? cause.message : 'Caricamento fallito.'
+      setMessage('⚠ Non è stato possibile salvare il pulsante: ' + detail)
     } finally {
       setBusy(false)
     }
@@ -158,18 +162,22 @@ export default function UploadedAudioPanel({ token, stopSignal }: { token: strin
       <form onSubmit={e => { void add(e) }}>
         <label>File audio (max 10 MB)
           <input type="file" ref={inputRef} accept=".mp3,.wav,.ogg,.m4a,.aac,.webm,.flac,audio/*"
-            onChange={e => setFile(e.target.files?.[0] || null)}/>
+            onChange={e => {
+              const chosen = e.target.files?.[0] || null
+              setFile(chosen)
+              setMessage(chosen ? 'File selezionato: ' + chosen.name : '')
+            }}/>
         </label>
         <label>Nome del pulsante (facoltativo)
           <input type="text" maxLength={90} placeholder="Es. Jingle Club42" value={title}
             onChange={e => setTitle(e.target.value)}/>
         </label>
-        <button className="primary" type="submit" disabled={!file || busy}>
+        <button className="primary" type="submit" disabled={busy}>
           {busy ? 'Salvataggio…' : '+ Crea pulsante'}
         </button>
       </form>
       <p className="uploaded-audio-note">Formati: MP3, WAV, OGG, M4A, AAC, WebM e FLAC. Carica soltanto audio che puoi utilizzare.</p>
-      {message&&<p className="myinstants-message" role="status">{message}</p>}
+      <p className="myinstants-message" role="status" aria-live="polite">{message}</p>
     </div>
     <div className="uploaded-audio-heading">
       <h3>Audio del Club42</h3>
